@@ -8,3 +8,4 @@
 - expanded forecasting capabilities
 
 # screenie
+![screenie](./211014_fulltardie_screenie.png)
