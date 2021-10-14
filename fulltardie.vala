@@ -3,16 +3,10 @@
 // by c.p.brown 2016~2021
 //
 // 4th edition 2021
-// using Vala for compatibility with mainline Linux on 64-bit Arm devices (futureproofing)
-// added compactable ui for phones, expanded forecasting function capabilities
 // tested OK on Linux 4.19.0-17-amd64, Xfce 4.14
 // tested OK on Linux 5.10-sunxi64, Gnome 40.5
 //
-// history:
-// 3rd edition 2020 (via Red) added almost-plain-english data-entry and GTK ui for Linux
-// xxx edition 2019 (via Red) abandoned re-write that calculated recurrance from actuals - proved impractial, though interestengly some banks are trying it now.
-// 2nd edition 2018 (via Red) added a win32 desktop ui, a catch-all forecasting function and basic graph
-// 1st edition 2016 (via Python) on BB10 (Passport), made to assist with quoting for long-term projects requiring travel, which often came with a second set of fixed costs.
+// minimal safetey checks atm; it can segfault
 //
 // TODO - oct 2021
 // X = done, ! = doing it, ~ = should do it but probably wont, ? = stuck
@@ -32,6 +26,7 @@
 // - [X] fix date format
 // - [X] block day counting if every-nth is zero; its picking up and counting single-date rules
 // - [X] trigger list selection events when using keyboard
+// - [!] add weekday to day counting
 // - [ ] add changed asterisk to header bar title
 // - [ ] find a way to make binaries truly standalone (they won't run when double-clicked in Ubuntu).
 // - [!] test automatic group color coding
