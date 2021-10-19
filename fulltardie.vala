@@ -45,14 +45,14 @@
 // - [ ] investigate double-click issue in Ubuntu: says it cant find application to run it, instead of just running it
 // - [!] group/category color coding 
 //     - [X] generate group and categroy colors where they don't exist
-//     - [ ] add a color swatch next to group & category params
-//         - [ ] make a new colorchooser popup that will fit on a mobile screen set to 200% scaling
-//             - [ ] use a colored box for the swatch, connect to click event
-//             - [ ] put rgb sliders into a popup
-//                 - [ ] snap rgb slider vals to 0.1
-//             - [ ] put a hex text field above sliders
-//             - [ ] interactively update swatch and
-//             - [ ] trigger paint functions based on tab selection
+//     - [?] add a color swatch next to group & category params
+//         - [!] make a new colorchooser popup that will fit on a mobile screen set to 200% scaling
+//             - [?] use a colored box for the swatch, connect to click event
+//             - [X] put rgb sliders into a popup
+//                 - [?] snap rgb slider vals to 5
+//             - [X] put a hex text field above sliders
+//             - [X] interactively update swatch and
+//             - [!] trigger paint functions based on tab selection
 //                 - [ ] try async functions for paint & forecast if it lags, or failing that
 //                     - [ ] purge the whole color-coding feature
 //     - [ ] find a way to set listbox bg color
@@ -787,19 +787,33 @@ public class FTW : Window {
 		hbgrp.max_children_per_line = 5;
 		Gtk.Label glb = new Label("grp");
 		glb.set_max_width_chars(8);
-// color swatches
-		Gtk.Box grpcolb = new Box(HORIZONTAL,10);
-		//Gtk.Button grpcolb = new Button();
+
+// color swatch
+		Gtk.Button grpcolb = new Button();
 		grpcolb.set_size_request (20,10);
-		var ggg = new Gdk.RGBA();
-		ggg.parse("#1A3B4F");
-		grpcolb.override_background_color(NORMAL, ggg);
+		var www = new Gdk.RGBA();
+		www.parse("#1A3B4F");
+
+// swatch background color (26, 59, 79)
+		grpcolb.override_background_color(NORMAL, www); // this doesn't work for buttons
+
 		gpop = new Gtk.Popover (grpcolb);
 		Gtk.Box cpbox = new Gtk.Box (VERTICAL,2);
+		cpbox.set_size_request (100,10);
 		gpop.add(cpbox);
-		Gtk.Scale rrr = new Scale.with_range(VERTICAL, 0, 255, 5);
-		rrr.set_value(125);
+		Gtk.Scale rrr = new Scale.with_range(HORIZONTAL, 0, 255, 100);
+		rrr.set_value(26);
+		Gtk.Scale ggg = new Scale.with_range(HORIZONTAL, 0, 255, 100);
+		ggg.set_value(59);
+		Gtk.Scale bbb = new Scale.with_range(HORIZONTAL, 0, 255, 100);
+		bbb.set_value(79);
+		var hhh = new Entry();
+		hhh.text = "#1A3B4F";
+		hhh.set_width_chars(8);
+		cpbox.add(hhh);
 		cpbox.add(rrr);
+		cpbox.add(ggg);
+		cpbox.add(bbb);
 
 		Gtk.Label clb = new Label("cat");
 		clb.set_max_width_chars(8);
@@ -1165,10 +1179,89 @@ public class FTW : Window {
 				}
 			}
 		});
-// box clicked doesn't work...
-		//grpcolb.clicked.connect (() =>  {
-		//	gpop.show_all ();
-		//});
+		grpcolb.button_press_event.connect(() =>  {
+			var s = setuplist.get_selected_row();
+			var r = 0;
+			if (s != null) { 
+				r = s.get_index();
+				string h = dat[r,12];
+				if (h.strip() == "") { h = "#1A3B4F"; print("group color data not found: %s", dat[r,11]); }
+				var g = new Gdk.RGBA();
+				g.parse(h);
+				doupdate = false;
+				hhh.text = h;
+				rrr.adjustment.value = ((double) ((int) (g.red * 255.0)));
+				ggg.adjustment.value = ((double) ((int) (g.green * 255.0)));
+				bbb.adjustment.value = ((double) ((int) (g.blue * 255.0)));
+				gpop.show_all();
+				doupdate = true;
+			}
+			return true;
+		});
+		rrr.adjustment.value_changed.connect(() => {
+			if (doupdate) {
+				var s = setuplist.get_selected_row();
+				var r = 0;
+				if (s != null) {
+					r = s.get_index();
+					string h = htmlcol (((int) rrr.adjustment.value), ((int) ggg.adjustment.value), ((int) bbb.adjustment.value));
+					doupdate = false; hhh.text = h; doupdate = true;
+					dat[r,12] = h;
+					var grgb = new Gdk.RGBA();
+					grgb.parse(h);
+					s.override_background_color(NORMAL, grgb);
+				}
+			}
+		});
+		ggg.adjustment.value_changed.connect(() => {
+			if (doupdate) {
+				var s = setuplist.get_selected_row();
+				var r = 0;
+				if (s != null) {
+					r = s.get_index();
+					string h = htmlcol (((int) rrr.adjustment.value), ((int) ggg.adjustment.value), ((int) bbb.adjustment.value));
+					doupdate = false; hhh.text = h; doupdate = true;
+					dat[r,12] = h;
+					var grgb = new Gdk.RGBA();
+					grgb.parse(h);
+					s.override_background_color(NORMAL, grgb);
+				}
+			}
+		});
+		bbb.adjustment.value_changed.connect(() => {
+			if (doupdate) {
+				var s = setuplist.get_selected_row();
+				var r = 0;
+				if (s != null) {
+					r = s.get_index();
+					string h = htmlcol (((int) rrr.adjustment.value), ((int) ggg.adjustment.value), ((int) bbb.adjustment.value));
+					doupdate = false; hhh.text = h; doupdate = true;
+					dat[r,12] = h;
+					var grgb = new Gdk.RGBA();
+					grgb.parse(h);
+					s.override_background_color(NORMAL, grgb);
+				}
+			}
+		});
+		hhh.changed.connect (() => {
+			if (doupdate) {
+				var s = setuplist.get_selected_row();
+				var r = 0;
+				if (s != null && hhh.text.strip() != "") {
+					r = s.get_index();
+					var g = new Gdk.RGBA();
+					if (g.parse(hhh.text)) {
+						dat[r,12] = hhh.text;
+						s.override_background_color(NORMAL, g);
+						doupdate = false;
+						rrr.adjustment.value = ((double) ((int) (g.red * 255.0)));
+						ggg.adjustment.value = ((double) ((int) (g.green * 255.0)));
+						bbb.adjustment.value = ((double) ((int) (g.blue * 255.0)));
+						doupdate = true;
+					}
+				}
+			}
+		});
 		saveit.clicked.connect (() =>  {
 			if (scene.text != null) {
 				if (scene.text.strip() != "") {
