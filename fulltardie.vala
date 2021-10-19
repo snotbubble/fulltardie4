@@ -485,8 +485,13 @@ void paintsetuplist(string[,] d, Gtk.ListBox b) {
 		print("\t\tsetting group color: %s\n", glr);
 		var grgb = new Gdk.RGBA();
 		grgb.parse(glr);
+		var grgba = new Gdk.RGBA();
+		grgba.red = 0.33; grgba.green = 0.74; grgba.blue = 1.0; grgba.alpha = 0.5;
 		var row = b.get_row_at_index(s);
 		row.override_background_color(NORMAL, grgb);
+		row.override_background_color(PRELIGHT, grgba);
+		grgba.red = 0.33; grgba.green = 0.74; grgba.blue = 4.0; grgba.alpha = 1.0;
+		row.override_background_color(SELECTED, grgba);
 // text
 		string clr = d[s,11];
 		if (d[s,11].strip() == "") { clr = "#55BDFF"; }
@@ -626,6 +631,16 @@ void selectarow (string[,] dat, Gtk.ListBoxRow row, Gtk.FlowBox fb, Gtk.ComboBox
 		if (gg[k] == dat[i,9]) { grpc.set_active(k); break; }
 	}
 	amts.set_value( double.parse(dat[i,7]) );
+	for (var s = 0; s < dat.length[0]; s++) {
+		string clr = dat[s,11];
+		if (dat[s,11].strip() == "") { clr = "#55BDFF"; }
+		if (s == i) { clr = "#1A3B4F"; }
+		var mqq = "".concat("<span color='", clr, "' font='monospace 16px'><b>", dat[s,10], "</b></span>");
+		var b = (ListBox) row.get_parent();
+		var sw = b.get_row_at_index(s);
+		var rl = (Label) sw.get_child();
+		rl.set_markup(mqq);
+	}
 	doupdate = true;
 	print("\tselectarow completed\n");
 }
@@ -723,6 +738,10 @@ public class FTW : Window {
 		}
 		setuplist.set_selection_mode(SINGLE);
 		setuplist.margin = 10;
+		var slc = new Gdk.RGBA();
+		slc.parse("#1A3B4F");
+		setuplist.override_background_color(NORMAL, slc);
+		//setuppage.override_background_color(NORMAL, slc); // does nothing
 		var flowbox = new FlowBox();
 		flowbox.set_orientation(Orientation.HORIZONTAL);
 		flowbox.min_children_per_line = 1;
@@ -876,6 +895,7 @@ public class FTW : Window {
 
 		var forecastpage = new ScrolledWindow(null, null);
 		var forecastlistbox = new ListBox();
+		forecastlistbox.override_background_color(NORMAL, slc);
 		for (var i = 1; i < 10; i++) {
 			string text = @"Label $i";
 			var labele = new Label(text);
@@ -1308,6 +1328,9 @@ public class FTW : Window {
 				}
 			}
 		});
+		//loadit.clicked.connect (() =>  {
+		//	spop.show_all();
+		//});
 		loadit.clicked.connect (() =>  {
 			spopbox.foreach ((element) => spopbox.remove (element));
 			var pth = GLib.Environment.get_current_dir();
@@ -1376,6 +1399,7 @@ public class FTW : Window {
 				}
 			}
 			spopbox.show_all();
+			spop.show_all();
 		});
 		addrule.clicked.connect (() =>  {
 			var s = setuplist.get_selected_row();
