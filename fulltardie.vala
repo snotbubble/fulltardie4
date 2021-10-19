@@ -30,6 +30,7 @@
 // - [X] trigger list selection events when using keyboard
 // - [X] find workaround to incorrect modulo (%) with negative numbers *** this is breaking long nth-month intervals ***
 // - [!] change nth weekday counting to use 1st and nth
+//     - [ ] test it more thoroughly against actuals
 // - [ ] check screen size/dpi, move params to a popup if screen is above 150% scaling. phosh on pinephone is 200% by default!
 //     - [ ] plain-english improvements (depends on dpi fix above):
 //         - [ ] [every] [weekday closest to *every*] [nth *day*] [] [of nth month] []
@@ -41,15 +42,22 @@
 //         - [ ] [every] [nth] [weekday] [*from the* fdy *occurence*] [of nth month] []
 //         - [ ] [every] [nth] [weekday] [*from the* fdy *occurence*] [] [*from* nth month]
 // - [ ] add changed asterisk to header bar title
-// - [ ] find a way to make binaries truly standalone (they won't run when double-clicked in Ubuntu).
-// - [!] automatic group/category color coding - I want a cvd.py style interface to the lists, with subtle color hints
-//     - [!] conform group and category colors where they exist (one color per group/category), get 1st & propagate
+// - [ ] investigate double-click issue in Ubuntu: says it cant find application to run it, instead of just running it
+// - [!] group/category color coding 
 //     - [X] generate group and categroy colors where they don't exist
 //     - [ ] add a color swatch next to group & category params
-//     - [ ] random regenerate colors on swatch event
-//         - [ ] investigate double-tap and long-press events for swatch
+//         - [ ] make a new colorchooser popup that will fit on a mobile screen set to 200% scaling
+//             - [ ] use a colored box for the swatch, connect to click event
+//             - [ ] put rgb sliders into a popup
+//                 - [ ] snap rgb slider vals to 0.1
+//             - [ ] put a hex text field above sliders
+//             - [ ] interactively update swatch and
+//             - [ ] trigger paint functions based on tab selection
+//                 - [ ] try async functions for paint & forecast if it lags, or failing that
+//                     - [ ] purge the whole color-coding feature
 //     - [ ] find a way to set listbox bg color
-//     - [ ] find a way to set listbox row bg color that works with most gtk themes, or how to expand row label
+//     - [?] find a way to set listbox row bg color
+//         - [X] use 'depreciated' method for setting listrow bg color for now... latest method has run off down the fucking OOP rabbithole
 // - [?] compact-left bottom row of params (hbgrp) while keeping the reflow behavior - might have to do it manually
 // - [?] hunt down source of invalid-date warnings... checked date.valid() after every change and its all good, dunno where this is coming from
 // - [?] find an elegant way to switch between pre-filtering and post-filtering when isolating - need a tri-state toggle
@@ -83,27 +91,27 @@ int dmod (int l, int r) {
 }
 
 // hsv to rgb function based on hsv-lab.r by Christopher Ross-Gill: http://www.rebol.org/view-script.r?script=hsv-lab.r
-int[] hsvtorgb (float[] c) {
-// hue = float 0.0 255.0
-// val = float 0.0 1.0
-// sat = float 0.0 1.0
-	float r = 0;
-	float g = 0;
-	float b = 0;
-	float h = c[0];
-	float s = c[1];
-	float v = c[2];
+int[] hsvtorgb (double[] c) {
+// hue = double 0.0 255.0
+// val = double 0.0 1.0
+// sat = double 0.0 1.0
+	double r = 0;
+	double g = 0;
+	double b = 0;
+	double h = c[0];
+	double s = c[1];
+	double v = c[2];
     if (s == 0.0) {
 		r = v;
 		g = v;
 		b = v;
 	} else {
-		h = h / ((float) 60.0);
+		h = h / ((double) 60.0);
 		int i = ((int) h);
-		float f = h - ((float) i);
-		float p = v * (1 - s);
-		float q = v * (1 - (s * f));
-		float t = v * (1 - (s * (1 - f)));
+		double f = h - ((double) i);
+		double p = v * (1 - s);
+		double q = v * (1 - (s * f));
+		double t = v * (1 - (s * (1 - f)));
 		switch (i) {
 			case 0: r = v; g = t; b = p; break;
 			case 1: r = q; g = v; b = p; break;
@@ -464,16 +472,39 @@ void forecast (string[,] d, Gtk.ListBox w, bool iso, int srow) {
 		}
 	}
 	w.show_all();
-	print("forecast completed\n");
+	print("forecast done\n");
+}
+
+//paint setup list
+void paintsetuplist(string[,] d, Gtk.ListBox b) {
+	print("\tpaintsetuplist started\n");
+	for (var s = 0; s < d.length[0]; s++) {
+// row bg
+		string glr = d[s,12];
+		if (d[s,12].strip() == "") { glr = "#1A3B4F"; }
+		var grgb = new Gdk.RGBA();
+		grgb.parse(glr);
+		var row = b.get_row_at_index(s);
+		row.override_background_color(NORMAL, grgb);
+// text
+		string clr = d[s,11];
+		if (d[s,11].strip() == "") { clr = "#55BDFF"; }
+		var mqq = "".concat("<span color='", clr, "' font='monospace 16px'><b>", d[s,10], "</b></span>");
+		var rl = (Label) row.get_child();
+		rl.set_markup(mqq);
+	}
+	print("\tpaintsetuplist completed\n");
 }
 
 // gather unique group/category names
 string[] getchoicelist(string[,] d, int idx) {
+	print("\t\tgetchoicelist started\n");
+	var whatupdate = doupdate;
 	doupdate = false;
 	var doit = true;
 	string[] o = {};
-	string[] c = {};
 	int[] q = {};
+	int k = 0;
 	for (var r = 0; r < d.length[0]; r++) {
 // can't find an equavalent of: if not x in y: y.append(x)
 // doing it manually:
@@ -481,38 +512,50 @@ string[] getchoicelist(string[,] d, int idx) {
 		if (o.length > 0) {
 			for (var i = 0; i < o.length; i++) {
 				if (o[i] == d[r,idx]) {
+					q += i;
 					doit = false; break;
 				}
 			}
 		}
 		if (doit) {
 			//print("collecting unique list item: %s\n", d[r,idx]);
+			q += o.length;
 			o += d[r,idx];
-			q += r;
 		}
 	}
-// get/set colors per found gtoup/category
-	for (var r = 0; r < o.length; r++) {
-		Random.set_seed(r);
+// set colors per found gtoup/category if they're blank
+// BG= RGBA(0.103486,0.229469,0.310458,1.000000) #1A3B4F (26, 59, 79)
+// FG= RGBA(0.333333,0.739130,1.000000,1.000000) #55BDFF (85, 189, 255)
+	for (var r = 0; r < d.length[0]; r++) {
+		Random.set_seed(q[r]);
 		int cidx = idx + 3;
-		if (d[q[r],cidx].strip() == "") {
-			float[] hh = { ((((float) r) / ((float) o.length)) * ((float) 255.0)), ((float) 0.8), ((float) 0.8) };
+		//print("\t\t\tchecking data: %s\n",d[r,cidx]);
+		if (d[r,cidx].strip() == "") {
+// random test, keep for reference
+			/*
+			print("\t\t\t\tdata is blank, setting %d / %d =  %f\n",(q[r] + 1),o.length,(((double) (q[r] + 1)) / ((double) o.length)));
+			double[] hh = { ((((double) (q[r] + 1)) / ((double) o.length)) * ((double) 255.0)), ((double) 0.7), ((double) 0.4) };
+			if (cidx == 11) {
+				hh = { ((((double) (q[r] + 1)) / ((double) o.length)) * ((double) 255.0)), ((double) 0.3), ((double) 0.9) };
+			}
 			int[] clr = hsvtorgb(hh);
 			string gg = htmlcol(clr[0], clr[1], clr[2]);
-			d[q[r],cidx] = gg;
-			c += gg;
-		} else {
-			c += d[q[r],cidx];
+			*/
+			if (cidx == 11) { d[r,cidx] = "#55BDFF"; }
+			if (cidx == 12) { d[r,cidx] = "#1A3B4F"; }
 		}
 	}
 	if (o.length == 0) { o += "none"; }
 	//doupdate = true;
 	//print("\n");
+	doupdate = whatupdate;
+	print("\t\tgetchoicelist completed\n");
 	return o;
 }
 
 // select a row, update params accordingly
 void selectarow (string[,] dat, Gtk.ListBoxRow row, Gtk.FlowBox fb, Gtk.ComboBoxText evrc, Gtk.ComboBoxText nthc, Gtk.ComboBoxText wkdc, Gtk.ComboBoxText fdyc, Gtk.ComboBoxText mthc, Gtk.ComboBoxText fmoc, Gtk.Entry dsct, Gtk.SpinButton fyes, Gtk.SpinButton amts, Gtk.ComboBoxText grpc, Gtk.ComboBoxText catc) {
+	print("\tselectarow started\n");
 	doupdate = false;
 	var i = row.get_index();
 	string[] fmo = {"from this month", "from january", "from february", "from march", "from april", "from may", "from june", "from july", "from august", "from september", "from october", "from november", "from december"};
@@ -582,27 +625,22 @@ void selectarow (string[,] dat, Gtk.ListBoxRow row, Gtk.FlowBox fb, Gtk.ComboBox
 		if (gg[k] == dat[i,9]) { grpc.set_active(k); break; }
 	}
 	amts.set_value( double.parse(dat[i,7]) );
-// refresh colors
-	string clr = dat[i,12];
-	if (dat[i,12].strip() == "") { clr = "#FF0000"; }
-// apply markup to label
-	var mqq = "".concat("<span color='", clr, "' font='monospace 16px'><b>", dat[i,10], "</b></span>");
-	var rl = (Label) row.get_child();
-	rl.set_markup(mqq);
 	doupdate = true;
+	print("\tselectarow completed\n");
 }
 
-//    gggg uu  uu iiiiii
-//  gg     uu  uu   ii
-//  gg  gg uu  uu   ii
-//  gg  gg uu  uu   ii
-//    gggg   uuuu iiiiii
+//    gggggg uuuu  uu iiiiiiii
+//  gggg     uuuu  uu   iiii
+//  gggg  gg uuuu  uu   iiii
+//  gggg  gg uuuu  uu   iiii
+//    gggggg   uuuuuu iiiiiiii
 
 public class FTW : Window {
 	private Notebook notebook;
 	private ListBox setuplist;
 	//private ListBox forecastlistbox;
 	private Popover spop;
+	private Popover gpop;
 	string[,] dat = {
 		{"1","1","7","0","1","7","0","-5.00","grocery","home","every sunday of every month starting from this september","",""},
 		{"2","2","1","0","1","0","0","-10.0","train","work","every 2nd and 4th monday of every month starting this month","",""},
@@ -677,12 +715,8 @@ public class FTW : Window {
 			//var ll = new Label(dat[e,10]);
 			var ll = new Label("");
 			ll.xalign = ((float) 0.0);
-// color test
-			string clr = dat[e,12];
-			if (dat[e,12].strip() == "") { clr = "#FF0000"; }
 // apply markup to label
-			var mqq = "".concat("<span color='", clr, "' font='monospace 16px'><b>", dat[e,10], "</b></span>");
-			//var mqq = "".concat("<span font='monospace 16px'><b>", dat[e,10], "</b></span>");
+			var mqq = "".concat("<span font='monospace 16px'><b>", dat[e,10], "</b></span>");
 			ll.set_markup(mqq);
 			setuplist.insert(ll,-1);
 		}
@@ -753,6 +787,20 @@ public class FTW : Window {
 		hbgrp.max_children_per_line = 5;
 		Gtk.Label glb = new Label("grp");
 		glb.set_max_width_chars(8);
+// color swatches
+		Gtk.Box grpcolb = new Box(HORIZONTAL,10);
+		//Gtk.Button grpcolb = new Button();
+		grpcolb.set_size_request (20,10);
+		var ggg = new Gdk.RGBA();
+		ggg.parse("#1A3B4F");
+		grpcolb.override_background_color(NORMAL, ggg);
+		gpop = new Gtk.Popover (grpcolb);
+		Gtk.Box cpbox = new Gtk.Box (VERTICAL,2);
+		gpop.add(cpbox);
+		Gtk.Scale rrr = new Scale.with_range(VERTICAL, 0, 255, 5);
+		rrr.set_value(125);
+		cpbox.add(rrr);
+
 		Gtk.Label clb = new Label("cat");
 		clb.set_max_width_chars(8);
 		Gtk.Label alb = new Label("amt");
@@ -767,6 +815,8 @@ public class FTW : Window {
 		glb.set_halign(START);
 		grpbox.add(grpcombo);
 		grpcombo.set_halign(START);
+		grpbox.add(grpcolb);
+		grpcolb.set_halign(START);
 		catbox.add(clb);
 		clb.set_halign(START);
 		catbox.add(catcombo);
@@ -828,6 +878,7 @@ public class FTW : Window {
 // select row
 		var row = setuplist.get_row_at_index(0);
 		selectarow (dat, row, flowbox, evrcombo, nthcombo, wkdcombo, fdycombo, mthcombo, fmocombo, dsc, fye, amtf, grpcombo, catcombo);
+		paintsetuplist(dat,setuplist);
 		doupdate = true;
 
 //  eeeeee vv  vv eeeeee nnnn   tttttt   ssss
@@ -848,6 +899,7 @@ public class FTW : Window {
 // setup list item select action
 
 		setuplist.row_selected.connect ((row) => {
+			print("selecting a row...\n");
 			if (doupdate) {
 				selectarow (dat, row, flowbox, evrcombo, nthcombo, wkdcombo, fdycombo, mthcombo, fmocombo, dsc, fye, amtf, grpcombo, catcombo);
 			}
@@ -1113,9 +1165,10 @@ public class FTW : Window {
 				}
 			}
 		});
-		loadit.clicked.connect (() =>  {
-			spop.show_all ();
-		});
+// box clicked doesn't work...
+		//grpcolb.clicked.connect (() =>  {
+		//	gpop.show_all ();
+		//});
 		saveit.clicked.connect (() =>  {
 			if (scene.text != null) {
 				if (scene.text.strip() != "") {
@@ -1125,7 +1178,7 @@ public class FTW : Window {
 					File fff = File.new_for_path (ff);
 					FileOutputStream oo = fff.replace (null, false, FileCreateFlags.PRIVATE);
 					for (var u = 0; u < dat.length[0]; u++) {
-						for (var g = 0; g < 11; g++) {
+						for (var g = 0; g < 13; g++) {
 							string rr = dat[u,g];
 							if (g < 12) { rr = ( rr + ";"); } 
 							oo.write (rr.data);
@@ -1169,6 +1222,7 @@ public class FTW : Window {
 									//print("\treading line: %s\n", oo[r]);
 									string[] rr = oo[r].split(";");
 									//print("\t\tcsv column count is: %d\n", rr.length);
+									while (rr.length < 13) { rr += ""; }
 									if (rr.length == 13) {
 										for (var c = 0; c < 13; c++) {
 											tdat[r,c] = rr[c];
@@ -1183,9 +1237,7 @@ public class FTW : Window {
 										var ll = new Label("");
 										ll.set_hexpand(true);
 										ll.xalign = ((float) 0.0);
-										string clr = dat[e,12];
-										if (dat[e,12].strip() == "") { clr = "#FF0000"; }
-										var mqq = "".concat("<span background='", clr, "' font='monospace 16px'><b>", dat[e,10], "</b></span>");
+										var mqq = "".concat("<span color='#FFFFFF' font='monospace 16px'><b>", dat[e,10], "</b></span>");
 										ll.set_markup(mqq);
 										setuplist.insert(ll,-1);
 									}
@@ -1194,6 +1246,7 @@ public class FTW : Window {
 									row = setuplist.get_row_at_index(0);
 									doupdate = false; setuplist.select_row(row); doupdate = true;
 									selectarow (dat, row, flowbox, evrcombo, nthcombo, wkdcombo, fdycombo, mthcombo, fmocombo, dsc, fye, amtf, grpcombo, catcombo);
+									paintsetuplist(dat,setuplist);
 									forecast(dat,forecastlistbox, iso.get_active(), 0);
 								}
 							}
@@ -1230,8 +1283,8 @@ public class FTW : Window {
 				tdat[n,8] = "cat1";					//category
 				tdat[n,9] = "grp1";					//group
 				tdat[n,10] = "new recurrence rule";	//description
-				tdat[n,11] = "#FFFFFF";				//categorycolor
-				tdat[n,12] = "#FFFFFF";				//groupcolor
+				tdat[n,11] = "#55BDFF";				//categorycolor
+				tdat[n,12] = "#1A3B4F";				//groupcolor
 				//print("new row populated: %s\n", tdat[n,10]);
 				//for (var r = 0; r < tdat.length[0]; r++) {
 				//	for (var c = 0; c < 11; c++) {
@@ -1263,12 +1316,12 @@ public class FTW : Window {
 			if (s != null) {
 				w = s.get_index();
 				//print("selected row is %d\n", w);
-				string[,] tdat = new string[(n-1),11];
+				string[,] tdat = new string[(n-1),13];
 				var i = 0;
 				for (var r = 0; r < dat.length[0]; r++) {
 					//print("r = %d, i = %d\n", r, i);
 					if (r != w) {
-						for (var c = 0; c < 11; c++) {
+						for (var c = 0; c < 13; c++) {
 							tdat[i,c] = dat[r,c];
 							//print("%s, ", tdat[r,c]);
 						}
