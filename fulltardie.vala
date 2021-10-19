@@ -482,6 +482,7 @@ void paintsetuplist(string[,] d, Gtk.ListBox b) {
 // row bg
 		string glr = d[s,12];
 		if (d[s,12].strip() == "") { glr = "#1A3B4F"; }
+		print("\t\tsetting group color: %s\n", glr);
 		var grgb = new Gdk.RGBA();
 		grgb.parse(glr);
 		var row = b.get_row_at_index(s);
@@ -1207,9 +1208,16 @@ public class FTW : Window {
 					string h = htmlcol (((int) rrr.adjustment.value), ((int) ggg.adjustment.value), ((int) bbb.adjustment.value));
 					doupdate = false; hhh.text = h; doupdate = true;
 					dat[r,12] = h;
-					var grgb = new Gdk.RGBA();
-					grgb.parse(h);
-					s.override_background_color(NORMAL, grgb);
+					var g = new Gdk.RGBA();
+					if (g.parse(h)) {
+						for (var w = 0; w < dat.length[0]; w++) {
+							if (dat[w,9] == dat[r,9]) {
+								var y = setuplist.get_row_at_index(w);
+								y.override_background_color(NORMAL, g);
+								dat[w,12] = h;
+							}
+						}
+					}
 				}
 			}
 		});
@@ -1222,9 +1230,16 @@ public class FTW : Window {
 					string h = htmlcol (((int) rrr.adjustment.value), ((int) ggg.adjustment.value), ((int) bbb.adjustment.value));
 					doupdate = false; hhh.text = h; doupdate = true;
 					dat[r,12] = h;
-					var grgb = new Gdk.RGBA();
-					grgb.parse(h);
-					s.override_background_color(NORMAL, grgb);
+					var g = new Gdk.RGBA();
+					if (g.parse(h)) {
+						for (var w = 0; w < dat.length[0]; w++) {
+							if (dat[w,9] == dat[r,9]) {
+								var y = setuplist.get_row_at_index(w);
+								y.override_background_color(NORMAL, g);
+								dat[w,12] = h;
+							}
+						}
+					}
 				}
 			}
 		});
@@ -1237,9 +1252,16 @@ public class FTW : Window {
 					string h = htmlcol (((int) rrr.adjustment.value), ((int) ggg.adjustment.value), ((int) bbb.adjustment.value));
 					doupdate = false; hhh.text = h; doupdate = true;
 					dat[r,12] = h;
-					var grgb = new Gdk.RGBA();
-					grgb.parse(h);
-					s.override_background_color(NORMAL, grgb);
+					var g = new Gdk.RGBA();
+					if (g.parse(h)) {
+						for (var w = 0; w < dat.length[0]; w++) {
+							if (dat[w,9] == dat[r,9]) {
+								var y = setuplist.get_row_at_index(w);
+								y.override_background_color(NORMAL, g);
+								dat[w,12] = h;
+							}
+						}
+					}
 				}
 			}
 		});
@@ -1251,8 +1273,13 @@ public class FTW : Window {
 					r = s.get_index();
 					var g = new Gdk.RGBA();
 					if (g.parse(hhh.text)) {
-						dat[r,12] = hhh.text;
-						s.override_background_color(NORMAL, g);
+						for (var w = 0; w < dat.length[0]; w++) {
+							if (dat[w,9] == dat[r,9]) {
+								var y = setuplist.get_row_at_index(w);
+								y.override_background_color(NORMAL, g);
+								dat[w,12] = hhh.text;
+							}
+						}
 						doupdate = false;
 						rrr.adjustment.value = ((double) ((int) (g.red * 255.0)));
 						ggg.adjustment.value = ((double) ((int) (g.green * 255.0)));
