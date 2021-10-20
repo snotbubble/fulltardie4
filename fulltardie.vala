@@ -79,8 +79,14 @@
 
 using Gtk;
 
+// cat before group
+
 // use to prevent event-loops
 bool doupdate = true;
+
+// vala is super fussy about where variables live, so these have to be functions...
+string textcolor () { return "#55BDFF"; }
+string rowcolor () { return "#1A3B4F"; }
 
 // true modulo from 'cdeerinck'
 // https://stackoverflow.com/questions/41180292/negative-number-modulo-in-swift#41180619
@@ -184,8 +190,8 @@ nextdate[] findnextdate (string[] dt, int ownr) {
 	oo.dsc = dt[10];
 	oo.cco = dt[11];
 	oo.gco = dt[12];
-	if (dt[11].strip() == "") { oo.cco = "#FF0000"; }
-	if (dt[12].strip() == "") { oo.gco = "#FF0000"; }
+	if (dt[11].strip() == "") { oo.cco = textcolor(); }
+	if (dt[12].strip() == "") { oo.gco = textcolor(); }
 	oo.frm = ownr;
 	//print("findnextdate: nextdate.own is: %d\n", oo.frm);
 	var ofs = int.parse(dt[0]);
@@ -477,27 +483,32 @@ void forecast (string[,] d, Gtk.ListBox w, bool iso, int srow) {
 
 //paint setup list
 void paintsetuplist(string[,] d, Gtk.ListBox b) {
+// paints all rows in setuplist
+// takes group color, applies to text,
+// then tints the row using same color @ 0.25 alpha
+// categroy color not used in lists as it gets too messy
 	print("\tpaintsetuplist started\n");
+	var bs = b.get_selected_row();
+	var bsi = 0;
+	if (bs != null) { bsi = bs.get_index(); }
 	for (var s = 0; s < d.length[0]; s++) {
-// row bg
-		string glr = d[s,12];
-		if (d[s,12].strip() == "") { glr = "#1A3B4F"; }
-		print("\t\tsetting group color: %s\n", glr);
-		var grgb = new Gdk.RGBA();
-		grgb.parse(glr);
-		var grgba = new Gdk.RGBA();
-		grgba.red = 0.33; grgba.green = 0.74; grgba.blue = 1.0; grgba.alpha = 0.5;
 		var row = b.get_row_at_index(s);
-		row.override_background_color(NORMAL, grgb);
-		row.override_background_color(PRELIGHT, grgba);
-		grgba.red = 0.33; grgba.green = 0.74; grgba.blue = 4.0; grgba.alpha = 1.0;
-		row.override_background_color(SELECTED, grgba);
-// text
-		string clr = d[s,11];
-		if (d[s,11].strip() == "") { clr = "#55BDFF"; }
+		string clr = d[s,12];
+		//print("\t\tchecking group color: %s\n", clr);
+		if (clr.strip() == "") { clr = textcolor(); }
+		if (bsi == s) { clr = rowcolor(); }
 		var mqq = "".concat("<span color='", clr, "' font='monospace 16px'><b>", d[s,10], "</b></span>");
 		var rl = (Label) row.get_child();
 		rl.set_markup(mqq);
+		var g = new Gdk.RGBA();
+		g.parse(clr);
+		g.alpha = 0.1;
+		row.override_background_color(NORMAL, g);
+		g.parse(textcolor());
+		g.alpha = 0.5;
+		row.override_background_color(PRELIGHT, g);
+		g.alpha = 1.0;
+		row.override_background_color(SELECTED, g);
 	}
 	print("\tpaintsetuplist completed\n");
 }
@@ -547,8 +558,8 @@ string[] getchoicelist(string[,] d, int idx) {
 			int[] clr = hsvtorgb(hh);
 			string gg = htmlcol(clr[0], clr[1], clr[2]);
 			*/
-			if (cidx == 11) { d[r,cidx] = "#55BDFF"; }
-			if (cidx == 12) { d[r,cidx] = "#1A3B4F"; }
+			if (cidx == 11) { d[r,cidx] = textcolor(); }
+			if (cidx == 12) { d[r,cidx] = textcolor(); }
 		}
 	}
 	if (o.length == 0) { o += "none"; }
@@ -559,11 +570,38 @@ string[] getchoicelist(string[,] d, int idx) {
 	return o;
 }
 
+void adjustgroupcolor (string[,] d, Gtk.ListBox l, Entry h, double r, double g, double b) {
+	var s = l.get_selected_row();
+	var r = 0;
+	if (s != null) {
+		r = s.get_index();
+		string hx = htmlcol (((int) r), ((int) g), ((int) b));
+		doupdate = false; h.text = h; doupdate = true;
+		d[r,12] = hx;
+		var g = new Gdk.RGBA();
+		if (g.parse(h)) {
+			for (var w = 0; w < d.length[0]; w++) {
+				if (d[w,9] == d[r,9]) {
+					if (r == w) { hx = rowcolor(); }
+					var mqq = "".concat("<span color='", hx, "' font='monospace 16px'><b>", d[s,10], "</b></span>");
+					var y = l.get_row_at_index(w);
+					g.alpha = 0.1;
+					y.override_background_color(NORMAL, g);
+					d[w,12] = hx;
+					y.set_markup(mqq);
+				}
+			}
+		}
+	}
+}
+
 // select a row, update params accordingly
-void selectarow (string[,] dat, Gtk.ListBoxRow row, Gtk.FlowBox fb, Gtk.ComboBoxText evrc, Gtk.ComboBoxText nthc, Gtk.ComboBoxText wkdc, Gtk.ComboBoxText fdyc, Gtk.ComboBoxText mthc, Gtk.ComboBoxText fmoc, Gtk.Entry dsct, Gtk.SpinButton fyes, Gtk.SpinButton amts, Gtk.ComboBoxText grpc, Gtk.ComboBoxText catc) {
+void selectarow (string[,] dat, Gtk.ListBox b, Gtk.FlowBox fb, Gtk.ComboBoxText evrc, Gtk.ComboBoxText nthc, Gtk.ComboBoxText wkdc, Gtk.ComboBoxText fdyc, Gtk.ComboBoxText mthc, Gtk.ComboBoxText fmoc, Gtk.Entry dsct, Gtk.SpinButton fyes, Gtk.SpinButton amts, Gtk.ComboBoxText grpc, Gtk.ComboBoxText catc, Gtk.Button gcb) {
 	print("\tselectarow started\n");
 	doupdate = false;
-	var i = row.get_index();
+	var row = b.get_selected_row();
+	var i = 0;
+	if (row != null) { i = row.get_index(); }
 	string[] fmo = {"from this month", "from january", "from february", "from march", "from april", "from may", "from june", "from july", "from august", "from september", "from october", "from november", "from december"};
 	string[] omo = {"of this month", "of january", "of february", "of march", "of april", "of may", "of june", "of july", "of august", "of september", "of october", "of november", "of december"};
 	//print("\tselected row index: %d\n", i);
@@ -631,16 +669,13 @@ void selectarow (string[,] dat, Gtk.ListBoxRow row, Gtk.FlowBox fb, Gtk.ComboBox
 		if (gg[k] == dat[i,9]) { grpc.set_active(k); break; }
 	}
 	amts.set_value( double.parse(dat[i,7]) );
-	for (var s = 0; s < dat.length[0]; s++) {
-		string clr = dat[s,11];
-		if (dat[s,11].strip() == "") { clr = "#55BDFF"; }
-		if (s == i) { clr = "#1A3B4F"; }
-		var mqq = "".concat("<span color='", clr, "' font='monospace 16px'><b>", dat[s,10], "</b></span>");
-		var b = (ListBox) row.get_parent();
-		var sw = b.get_row_at_index(s);
-		var rl = (Label) sw.get_child();
-		rl.set_markup(mqq);
-	}
+	var clr = dat[i,12];
+	if (clr.strip() == "") { clr = textcolor(); }
+	var g = new Gdk.RGBA();
+	g.parse(clr);
+	gcb.override_background_color(NORMAL, g);
+// set foreground text
+	paintsetuplist(dat,b);
 	doupdate = true;
 	print("\tselectarow completed\n");
 }
@@ -812,7 +847,7 @@ public class FTW : Window {
 		Gtk.Button grpcolb = new Button();
 		grpcolb.set_size_request (20,10);
 		var www = new Gdk.RGBA();
-		www.parse("#1A3B4F");
+		www.parse(textcolor());
 
 // swatch background color (26, 59, 79)
 		grpcolb.override_background_color(NORMAL, www); // this doesn't work for buttons
@@ -912,8 +947,7 @@ public class FTW : Window {
 
 // select row
 		var row = setuplist.get_row_at_index(0);
-		selectarow (dat, row, flowbox, evrcombo, nthcombo, wkdcombo, fdycombo, mthcombo, fmocombo, dsc, fye, amtf, grpcombo, catcombo);
-		paintsetuplist(dat,setuplist);
+		selectarow (dat, setuplist, flowbox, evrcombo, nthcombo, wkdcombo, fdycombo, mthcombo, fmocombo, dsc, fye, amtf, grpcombo, catcombo, grpcolb);
 		doupdate = true;
 
 //  eeeeee vv  vv eeeeee nnnn   tttttt   ssss
@@ -936,7 +970,7 @@ public class FTW : Window {
 		setuplist.row_selected.connect ((row) => {
 			print("selecting a row...\n");
 			if (doupdate) {
-				selectarow (dat, row, flowbox, evrcombo, nthcombo, wkdcombo, fdycombo, mthcombo, fmocombo, dsc, fye, amtf, grpcombo, catcombo);
+				selectarow (dat, setuplist, flowbox, evrcombo, nthcombo, wkdcombo, fdycombo, mthcombo, fmocombo, dsc, fye, amtf, grpcombo, catcombo, grpcolb);
 			}
 		});
 
@@ -954,7 +988,7 @@ public class FTW : Window {
 						var own = int.parse(ll.tooltip_text);
 						row = setuplist.get_row_at_index(own);
 						doupdate = false; setuplist.select_row(row); doupdate = true;
-						selectarow (dat, row, flowbox, evrcombo, nthcombo, wkdcombo, fdycombo, mthcombo, fmocombo, dsc, fye, amtf, grpcombo, catcombo);
+						selectarow (dat, setuplist, flowbox, evrcombo, nthcombo, wkdcombo, fdycombo, mthcombo, fmocombo, dsc, fye, amtf, grpcombo, catcombo, grpcolb);
 					}
 				}
 			}
@@ -1206,7 +1240,7 @@ public class FTW : Window {
 			if (s != null) { 
 				r = s.get_index();
 				string h = dat[r,12];
-				if (h.strip() == "") { h = "#1A3B4F"; print("group color data not found: %s", dat[r,11]); }
+				if (h.strip() == "") { h = textcolor(); print("group color data not found: %s", dat[r,12]); }
 				var g = new Gdk.RGBA();
 				g.parse(h);
 				doupdate = false;
@@ -1388,8 +1422,7 @@ public class FTW : Window {
 									scene.text = exts[0];
 									row = setuplist.get_row_at_index(0);
 									doupdate = false; setuplist.select_row(row); doupdate = true;
-									selectarow (dat, row, flowbox, evrcombo, nthcombo, wkdcombo, fdycombo, mthcombo, fmocombo, dsc, fye, amtf, grpcombo, catcombo);
-									paintsetuplist(dat,setuplist);
+									selectarow (dat, setuplist, flowbox, evrcombo, nthcombo, wkdcombo, fdycombo, mthcombo, fmocombo, dsc, fye, amtf, grpcombo, catcombo, grpcolb);
 									forecast(dat,forecastlistbox, iso.get_active(), 0);
 								}
 							}
@@ -1427,8 +1460,8 @@ public class FTW : Window {
 				tdat[n,8] = "cat1";					//category
 				tdat[n,9] = "grp1";					//group
 				tdat[n,10] = "new recurrence rule";	//description
-				tdat[n,11] = "#55BDFF";				//categorycolor
-				tdat[n,12] = "#1A3B4F";				//groupcolor
+				tdat[n,11] = textcolor();				//categorycolor
+				tdat[n,12] = textcolor();				//groupcolor
 				//print("new row populated: %s\n", tdat[n,10]);
 				//for (var r = 0; r < tdat.length[0]; r++) {
 				//	for (var c = 0; c < 11; c++) {
@@ -1449,7 +1482,7 @@ public class FTW : Window {
 				setuplist.show_all();
 				row = setuplist.get_row_at_index((dat.length[0] - 1));
 				doupdate = false; setuplist.select_row(row); doupdate = true;
-				selectarow (dat, row, flowbox, evrcombo, nthcombo, wkdcombo, fdycombo, mthcombo, fmocombo, dsc, fye, amtf, grpcombo, catcombo);
+				selectarow (dat, setuplist, flowbox, evrcombo, nthcombo, wkdcombo, fdycombo, mthcombo, fmocombo, dsc, fye, amtf, grpcombo, catcombo, grpcolb);
 				forecast(dat,forecastlistbox, iso.get_active(), (dat.length[0] - 1));
 			}
 		});
@@ -1483,7 +1516,7 @@ public class FTW : Window {
 				setuplist.show_all();
 				row = setuplist.get_row_at_index((dat.length[0] - 1));
 				doupdate = false; setuplist.select_row(row); doupdate = true;
-				selectarow (dat, row, flowbox, evrcombo, nthcombo, wkdcombo, fdycombo, mthcombo, fmocombo, dsc, fye, amtf, grpcombo, catcombo);
+				selectarow (dat, setuplist, flowbox, evrcombo, nthcombo, wkdcombo, fdycombo, mthcombo, fmocombo, dsc, fye, amtf, grpcombo, catcombo, grpcolb);
 				forecast(dat,forecastlistbox, iso.get_active(), (dat.length[0] - 1));
 			}
 		});
