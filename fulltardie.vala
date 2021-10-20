@@ -570,25 +570,29 @@ string[] getchoicelist(string[,] d, int idx) {
 	return o;
 }
 
-void adjustgroupcolor (string[,] d, Gtk.ListBox l, Entry h, double r, double g, double b) {
+void adjustgroupcolor (string[,] d, Gtk.ListBox l, Entry h, double r, double g, double b, bool x) {
+// data, setuplist, hex-entry, red slider val, green slider val, blue slider val, do hex-entry
 	var s = l.get_selected_row();
-	var r = 0;
+	var e = 0;
 	if (s != null) {
-		r = s.get_index();
+		e = s.get_index();
 		string hx = htmlcol (((int) r), ((int) g), ((int) b));
-		doupdate = false; h.text = h; doupdate = true;
-		d[r,12] = hx;
-		var g = new Gdk.RGBA();
-		if (g.parse(h)) {
+		if (x) { hx = h.text; }
+// prevent overwriting hex field if editing hex field
+		if (x == false) { doupdate = false; h.text = hx; doupdate = true; }
+		var c = new Gdk.RGBA();
+		if (c.parse(hx)) {
+			d[e,12] = hx;
 			for (var w = 0; w < d.length[0]; w++) {
-				if (d[w,9] == d[r,9]) {
-					if (r == w) { hx = rowcolor(); }
-					var mqq = "".concat("<span color='", hx, "' font='monospace 16px'><b>", d[s,10], "</b></span>");
+				if (d[w,9] == d[e,9]) {
+					//if (e == w) { hx = rowcolor(); }
+					var mqq = "".concat("<span color='", hx, "' font='monospace 16px'><b>", d[w,10], "</b></span>");
 					var y = l.get_row_at_index(w);
-					g.alpha = 0.1;
-					y.override_background_color(NORMAL, g);
+					var u = (Label) y.get_child();
+					c.alpha = 0.1;
+					y.override_background_color(NORMAL, c);
 					d[w,12] = hx;
-					y.set_markup(mqq);
+					u.set_markup(mqq);
 				}
 			}
 		}
@@ -1215,20 +1219,12 @@ public class FTW : Window {
 						if (s != null) {
 							r = s.get_index();
 							dat[r,10] = dsc.text;
-							setuplist.foreach ((element) => setuplist.remove (element));
-							for (var e = 0; e < dat.length[0]; e++) {
-								//var ll = new Label(dat[e,10]);
-								var ll = new Label("");
-								ll.xalign = ((float) 0.0);
-								var mqq = "".concat("<span font='monospace 16px'><b>", dat[e,10], "</b></span>");
-								ll.set_markup(mqq);
-								setuplist.insert(ll,-1);
-							}
-							setuplist.show_all();
-							row = setuplist.get_row_at_index(r);
-							//print("attempting to select row at index %d...\n", r);
-							doupdate = false; setuplist.select_row(row); doupdate = true;
+							var l = (Label) s.get_child();
+							var mq = "".concat("<span color='", rowcolor(), "' font='monospace 16px'><b>", dat[r,10], "</b></span>");
+							doupdate = false;
+							l.set_markup(mq);
 							forecast(dat,forecastlistbox, iso.get_active(), r);
+							doupdate = true;
 						}
 					}
 				}
@@ -1242,99 +1238,40 @@ public class FTW : Window {
 				string h = dat[r,12];
 				if (h.strip() == "") { h = textcolor(); print("group color data not found: %s", dat[r,12]); }
 				var g = new Gdk.RGBA();
-				g.parse(h);
-				doupdate = false;
-				hhh.text = h;
-				rrr.adjustment.value = ((double) ((int) (g.red * 255.0)));
-				ggg.adjustment.value = ((double) ((int) (g.green * 255.0)));
-				bbb.adjustment.value = ((double) ((int) (g.blue * 255.0)));
-				gpop.show_all();
-				doupdate = true;
+				if (g.parse(h)) {
+					doupdate = false;
+					hhh.text = h;
+					rrr.adjustment.value = ((double) ((int) (g.red * 255.0)));
+					ggg.adjustment.value = ((double) ((int) (g.green * 255.0)));
+					bbb.adjustment.value = ((double) ((int) (g.blue * 255.0)));
+					gpop.show_all();
+					doupdate = true;
+				}
 			}
 			return true;
 		});
 		rrr.adjustment.value_changed.connect(() => {
 			if (doupdate) {
-				var s = setuplist.get_selected_row();
-				var r = 0;
-				if (s != null) {
-					r = s.get_index();
-					string h = htmlcol (((int) rrr.adjustment.value), ((int) ggg.adjustment.value), ((int) bbb.adjustment.value));
-					doupdate = false; hhh.text = h; doupdate = true;
-					dat[r,12] = h;
-					var g = new Gdk.RGBA();
-					if (g.parse(h)) {
-						for (var w = 0; w < dat.length[0]; w++) {
-							if (dat[w,9] == dat[r,9]) {
-								var y = setuplist.get_row_at_index(w);
-								y.override_background_color(NORMAL, g);
-								dat[w,12] = h;
-							}
-						}
-					}
-				}
+				adjustgroupcolor(dat, setuplist, hhh, rrr.adjustment.value, ggg.adjustment.value, bbb.adjustment.value, false);
 			}
 		});
 		ggg.adjustment.value_changed.connect(() => {
 			if (doupdate) {
-				var s = setuplist.get_selected_row();
-				var r = 0;
-				if (s != null) {
-					r = s.get_index();
-					string h = htmlcol (((int) rrr.adjustment.value), ((int) ggg.adjustment.value), ((int) bbb.adjustment.value));
-					doupdate = false; hhh.text = h; doupdate = true;
-					dat[r,12] = h;
-					var g = new Gdk.RGBA();
-					if (g.parse(h)) {
-						for (var w = 0; w < dat.length[0]; w++) {
-							if (dat[w,9] == dat[r,9]) {
-								var y = setuplist.get_row_at_index(w);
-								y.override_background_color(NORMAL, g);
-								dat[w,12] = h;
-							}
-						}
-					}
-				}
+				adjustgroupcolor(dat, setuplist, hhh, rrr.adjustment.value, ggg.adjustment.value, bbb.adjustment.value, false);
 			}
 		});
 		bbb.adjustment.value_changed.connect(() => {
 			if (doupdate) {
-				var s = setuplist.get_selected_row();
-				var r = 0;
-				if (s != null) {
-					r = s.get_index();
-					string h = htmlcol (((int) rrr.adjustment.value), ((int) ggg.adjustment.value), ((int) bbb.adjustment.value));
-					doupdate = false; hhh.text = h; doupdate = true;
-					dat[r,12] = h;
-					var g = new Gdk.RGBA();
-					if (g.parse(h)) {
-						for (var w = 0; w < dat.length[0]; w++) {
-							if (dat[w,9] == dat[r,9]) {
-								var y = setuplist.get_row_at_index(w);
-								y.override_background_color(NORMAL, g);
-								dat[w,12] = h;
-							}
-						}
-					}
-				}
+				adjustgroupcolor(dat, setuplist, hhh, rrr.adjustment.value, ggg.adjustment.value, bbb.adjustment.value, false);
 			}
 		});
 		hhh.changed.connect (() => {
 			if (doupdate) {
-				var s = setuplist.get_selected_row();
-				var r = 0;
-				if (s != null && hhh.text.strip() != "") {
-					r = s.get_index();
+				if (hhh.text.strip() != "") {
 					var g = new Gdk.RGBA();
 					if (g.parse(hhh.text)) {
-						for (var w = 0; w < dat.length[0]; w++) {
-							if (dat[w,9] == dat[r,9]) {
-								var y = setuplist.get_row_at_index(w);
-								y.override_background_color(NORMAL, g);
-								dat[w,12] = hhh.text;
-							}
-						}
 						doupdate = false;
+						adjustgroupcolor(dat, setuplist, hhh, rrr.adjustment.value, ggg.adjustment.value, bbb.adjustment.value, true);
 						rrr.adjustment.value = ((double) ((int) (g.red * 255.0)));
 						ggg.adjustment.value = ((double) ((int) (g.green * 255.0)));
 						bbb.adjustment.value = ((double) ((int) (g.blue * 255.0)));
