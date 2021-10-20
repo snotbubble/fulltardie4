@@ -31,7 +31,7 @@
 // - [X] find workaround to incorrect modulo (%) with negative numbers *** this is breaking long nth-month intervals ***
 // - [!] change nth weekday counting to use 1st and nth
 //     - [ ] test it more thoroughly against actuals
-// - [ ] check screen size/dpi, move params to a popup if screen is above 150% scaling. phosh on pinephone is 200% by default!
+// - [!] check screen size/dpi, move params to a popup if screen is above 150% scaling. phosh on pinephone is 200% by default!
 //     - [ ] plain-english improvements (depends on dpi fix above):
 //         - [ ] [every] [weekday closest to *every*] [nth *day*] [] [of nth month] []
 //         - [ ] [every] [weekday closest to *every*] [nth *day*] [] [] [*from* month]
@@ -55,7 +55,7 @@
 //             - [!] trigger paint functions based on tab selection
 //                 - [ ] try async functions for paint & forecast if it lags, or failing that
 //                     - [ ] purge the whole color-coding feature
-//     - [ ] find a way to set listbox bg color
+//     - [X] find a way to set listbox bg color
 //     - [?] find a way to set listbox row bg color
 //         - [X] use 'depreciated' method for setting listrow bg color for now... latest method has run off down the fucking OOP rabbithole
 // - [?] compact-left bottom row of params (hbgrp) while keeping the reflow behavior - might have to do it manually
