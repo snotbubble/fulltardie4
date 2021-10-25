@@ -31,7 +31,7 @@
 // - [X] find workaround to incorrect modulo (%) with negative numbers *** this is breaking long nth-month intervals ***
 // - [!] change nth weekday counting to use 1st and nth
 //     - [ ] test it more thoroughly against actuals
-// - [!] check screen size/dpi, move params to a popup if screen is above 150% scaling. phosh on pinephone is 200% by default!
+// - [?] check screen size/dpi, move params to a popup if screen is above 150% scaling. phosh on pinephone is 200% by default!
 //     - [ ] plain-english improvements (depends on dpi fix above):
 //         - [ ] [every] [weekday closest to *every*] [nth *day*] [] [of nth month] []
 //         - [ ] [every] [weekday closest to *every*] [nth *day*] [] [] [*from* month]
@@ -52,7 +52,6 @@
 //                 - [?] snap rgb slider vals to 5
 //             - [X] put a hex text field above sliders
 //             - [X] interactively update swatch and
-//             - [!] trigger paint functions based on tab selection
 //                 - [ ] try async functions for paint & forecast if it lags, or failing that
 //                     - [ ] purge the whole color-coding feature
 //     - [X] find a way to set listbox bg color
@@ -60,8 +59,8 @@
 //         - [X] use 'depreciated' method for setting listrow bg color for now... latest method has run off down the fucking OOP rabbithole
 // - [?] compact-left bottom row of params (hbgrp) while keeping the reflow behavior - might have to do it manually
 // - [?] hunt down source of invalid-date warnings... checked date.valid() after every change and its all good, dunno where this is coming from
-// - [?] find an elegant way to switch between pre-filtering and post-filtering when isolating - need a tri-state toggle
-// - [?] fix the black-margin issue when scrollbars appear - only appears in certain gtk themes
+// - [~] find an elegant way to switch between pre-filtering and post-filtering when isolating - need a tri-state toggle
+// - [~] fix the black-margin issue when scrollbars appear ... removed the margin
 // - [~] find an elegant way to handle every 90th and 91st day in alternating cycles (actual from a sydney utility company).
 // - [~] remember forecast list selection
 // moved to next month
@@ -172,7 +171,7 @@ string htmlcol (int r, int g, int b) {
 
 // forecast per item
 nextdate[] findnextdate (string[] dt, int ownr) {
-	print("\tfindnextdate started\n");
+	//print("\tfindnextdate started\n");
 	int[] lastdayofmonth = {31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31};
 	var nt = new DateTime.now_local();
 	var ntd = nt.get_day_of_month();
@@ -398,13 +397,13 @@ nextdate[] findnextdate (string[] dt, int ownr) {
 			}
 		}
 	}
-	print("\tfindnextdate completed\n");
+	//print("\tfindnextdate completed\n");
 	return o;
 }
 
 // forecast everything in dat and render it
 void forecast (string[,] d, Gtk.ListBox w, bool iso, int srow) {
-	print("forecast started\n");
+	//print("forecast started\n");
 // gtk widget clearing one-liner posted by Evan Nemerson: https://stackoverflow.com/questions/36215425/vala-how-do-you-delete-all-the-children-of-a-gtk-container
 	w.foreach ((element) => w.remove (element));
 	string[] forecasted = {};
@@ -478,7 +477,7 @@ void forecast (string[,] d, Gtk.ListBox w, bool iso, int srow) {
 		}
 	}
 	w.show_all();
-	print("forecast done\n");
+	//print("forecast done\n");
 }
 
 //paint setup list
@@ -487,7 +486,7 @@ void paintsetuplist(string[,] d, Gtk.ListBox b) {
 // takes group color, applies to text,
 // then tints the row using same color @ 0.25 alpha
 // categroy color not used in lists as it gets too messy
-	print("\tpaintsetuplist started\n");
+	//print("\tpaintsetuplist started\n");
 	var bs = b.get_selected_row();
 	var bsi = 0;
 	if (bs != null) { bsi = bs.get_index(); }
@@ -510,12 +509,12 @@ void paintsetuplist(string[,] d, Gtk.ListBox b) {
 		g.alpha = 1.0;
 		row.override_background_color(SELECTED, g);
 	}
-	print("\tpaintsetuplist completed\n");
+	//print("\tpaintsetuplist completed\n");
 }
 
 // gather unique group/category names
 string[] getchoicelist(string[,] d, int idx) {
-	print("\t\tgetchoicelist started\n");
+	//print("\t\tgetchoicelist started\n");
 	var whatupdate = doupdate;
 	doupdate = false;
 	var doit = true;
@@ -566,7 +565,7 @@ string[] getchoicelist(string[,] d, int idx) {
 	//doupdate = true;
 	//print("\n");
 	doupdate = whatupdate;
-	print("\t\tgetchoicelist completed\n");
+	//print("\t\tgetchoicelist completed\n");
 	return o;
 }
 
@@ -601,7 +600,7 @@ void adjustgroupcolor (string[,] d, Gtk.ListBox l, Entry h, double r, double g, 
 
 // select a row, update params accordingly
 void selectarow (string[,] dat, Gtk.ListBox b, Gtk.FlowBox fb, Gtk.ComboBoxText evrc, Gtk.ComboBoxText nthc, Gtk.ComboBoxText wkdc, Gtk.ComboBoxText fdyc, Gtk.ComboBoxText mthc, Gtk.ComboBoxText fmoc, Gtk.Entry dsct, Gtk.SpinButton fyes, Gtk.SpinButton amts, Gtk.ComboBoxText grpc, Gtk.ComboBoxText catc, Gtk.Button gcb) {
-	print("\tselectarow started\n");
+	//print("\tselectarow started\n");
 	doupdate = false;
 	var row = b.get_selected_row();
 	var i = 0;
@@ -681,7 +680,7 @@ void selectarow (string[,] dat, Gtk.ListBox b, Gtk.FlowBox fb, Gtk.ComboBoxText 
 // set foreground text
 	paintsetuplist(dat,b);
 	doupdate = true;
-	print("\tselectarow completed\n");
+	//print("\tselectarow completed\n");
 }
 
 //    gggggg uuuu  uu iiiiiiii
@@ -776,7 +775,7 @@ public class FTW : Window {
 			setuplist.insert(ll,-1);
 		}
 		setuplist.set_selection_mode(SINGLE);
-		setuplist.margin = 10;
+		setuplist.margin = 0;
 		var slc = new Gdk.RGBA();
 		slc.parse("#1A3B4F");
 		setuplist.override_background_color(NORMAL, slc);
@@ -823,6 +822,10 @@ public class FTW : Window {
 		flowbox.add(fmocombo);
 		flowbox.add(fye);
 
+// add a space for scrolling
+
+		flowbox.margin_end = 70;
+
 // non date params
 
 		var dsc = new Entry();
@@ -836,8 +839,6 @@ public class FTW : Window {
 		var catcombo = new ComboBoxText.with_entry();
 		var ee = (Entry) catcombo.get_child();
 		ee.set_width_chars(8);
-		var grp = new Box(VERTICAL,10);
-		//grp.margin = 10;
 		var hgrp = new Box(HORIZONTAL,10);
 		hgrp.add(dsc);
 		var hbgrp = new FlowBox();
@@ -878,11 +879,11 @@ public class FTW : Window {
 		clb.set_max_width_chars(8);
 		Gtk.Label alb = new Label("amt");
 		alb.set_max_width_chars(8);
-		Gtk.ToggleButton iso = new ToggleButton.with_label("isolate");
+		Gtk.ToggleButton iso = new ToggleButton.with_label("iso");
 		var grpbox = new Box(HORIZONTAL,10);
 		var catbox = new Box(HORIZONTAL,10);
 		var amtbox = new Box(HORIZONTAL,10);
-		iso.set_halign(END);
+		iso.set_halign(START);
 		hbgrp.set_column_spacing(10);
 		grpbox.add(glb);
 		glb.set_halign(START);
@@ -899,15 +900,24 @@ public class FTW : Window {
 		hbgrp.add(grpbox);
 		hbgrp.add(catbox);
 		hbgrp.add(amtbox);
-		hbgrp.add(iso);
+		hbgrp.margin_end = 70;
+		hgrp.add(iso);
 		hgrp.add(addrule);
 		hgrp.add(remrule);
+		hgrp.margin_end = 70;
 
 // assemble params
 
+		var grp = new Box(VERTICAL,10);
+		var sgrp = new ScrolledWindow(null, null);
+		sgrp.propagate_natural_width = true;
+		sgrp.set_min_content_height( 50 );
+		sgrp.set_max_content_height( 700 );
+		grp.margin = 10;
 		grp.add(hgrp);
 		grp.add(flowbox);
 		grp.add(hbgrp);
+		sgrp.add(grp);
 
 // more containers
 
@@ -919,7 +929,7 @@ public class FTW : Window {
 		grid.set_row_spacing(5);
 		grid.set_column_spacing(5);
 		//grid.attach(setuplistcontainer,0,0,1,1);
-		grid.attach(grp,0,1,1,1);
+		grid.attach(sgrp,0,1,1,1);
 		grid.set_baseline_row(1);
 		//setuppage.add(grid);
 
@@ -940,7 +950,7 @@ public class FTW : Window {
 			var labele = new Label(text);
 			forecastlistbox.add(labele);
 		}
-		forecastlistbox.margin = 10;
+		forecastlistbox.margin = 0;
 		forecastpage.add(forecastlistbox);
 		var label2 = new Label(null);
 		label2.set_markup("<b><big>setup</big></b>");
@@ -972,7 +982,7 @@ public class FTW : Window {
 // setup list item select action
 
 		setuplist.row_selected.connect ((row) => {
-			print("selecting a row...\n");
+			//print("selecting a row...\n");
 			if (doupdate) {
 				selectarow (dat, setuplist, flowbox, evrcombo, nthcombo, wkdcombo, fdycombo, mthcombo, fmocombo, dsc, fye, amtf, grpcombo, catcombo, grpcolb);
 			}
@@ -1378,9 +1388,9 @@ public class FTW : Window {
 			if (s != null) {
 				w = s.get_index();
 				//print("selected row is %d\n", w);
-				string[,] tdat = new string[(n+1),11];
+				string[,] tdat = new string[(n+1),13];
 				for (var r = 0; r < dat.length[0]; r++) {
-					for (var c = 0; c < 11; c++) {
+					for (var c = 0; c < 13; c++) {
 						tdat[r,c] = dat[r,c];
 						//print("%s, ", tdat[r,c]);
 					}
@@ -1455,6 +1465,23 @@ public class FTW : Window {
 				doupdate = false; setuplist.select_row(row); doupdate = true;
 				selectarow (dat, setuplist, flowbox, evrcombo, nthcombo, wkdcombo, fdycombo, mthcombo, fmocombo, dsc, fye, amtf, grpcombo, catcombo, grpcolb);
 				forecast(dat,forecastlistbox, iso.get_active(), (dat.length[0] - 1));
+			}
+		});
+// prevent params from taking up the whole screen on super-low-res displays
+		this.size_allocate.connect (() => {
+			if (doupdate) {
+				double wx = 100;
+				double wy = 100;
+				this.get_size(out wx, out wy);
+				var c = 0.0;
+				c = double.min(double.max( 0.0, ((wx - 330.0) / 300.0)),0.25);
+				c = 1.0 - c;
+				int yy = ((int) (c * 200.0));
+				//print("window size x is: %f, sfac is: %f, new size is: %d\n", wx, c, yy);
+				doupdate = false;
+				sgrp.set_min_content_height( yy );
+				doupdate = true;
+				//return false;
 			}
 		});
 	}
