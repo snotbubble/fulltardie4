@@ -10,25 +10,13 @@
 //
 // minimal safety atm; can segfault under certain conditions
 //
-// TODO - oct 2021
-// [X] = done, [!] = doing it, [~] = should do it but probably wont, [?] = stuck
-// - [X] add amount field
-// - [X] add group field
-// - [X] add category field
-// - [X] add year field
-// - [X] do simple day counting when of-the-nth-month is 0
-// - [X] move param pane to main grid
-// - [X] fix group/category combobox behavior
-// - [X] allow overwriting of existing scenarios
-// - [X] add isolate toggle to parameters
-// - [X] add padding to group and category in forecast list
-// - [X] select forecast item selects creating rule
-// - [X] replace activated (enter) events with change events - the program is fast enough to handle it :)
-// - [X] replace scenario name on load
-// - [X] fix date format
-// - [X] block day counting if every-nth is zero; its picking up and counting single-date rules
-// - [X] trigger list selection events when using keyboard
-// - [X] find workaround to incorrect modulo (%) with negative numbers *** this is breaking long nth-month intervals ***
+// TODO - nov 2021
+// [X] = done
+// [!] = doing it
+// [~] = should do it but probably wont
+// [?] = stuck
+//
+// - [ ] fix corrupted color vals when adding a new item
 // - [!] change nth weekday counting to use 1st and nth
 //     - [ ] test it more thoroughly against actuals
 // - [?] check screen size/dpi, move params to a popup if screen is above 150% scaling. phosh on pinephone is 200% by default!
@@ -43,37 +31,35 @@
 //         - [ ] [every] [nth] [weekday] [*from the* fdy *occurence*] [] [*from* nth month]
 // - [ ] add changed asterisk to header bar title
 // - [ ] investigate double-click issue in Ubuntu: says it cant find application to run it, instead of just running it
-// - [!] group/category color coding 
-//     - [X] generate group and categroy colors where they don't exist
-//     - [?] add a color swatch next to group & category params
-//         - [!] make a new colorchooser popup that will fit on a mobile screen set to 200% scaling
-//             - [?] use a colored box for the swatch, connect to click event
-//             - [X] put rgb sliders into a popup
-//                 - [?] snap rgb slider vals to 5
-//             - [X] put a hex text field above sliders
-//             - [X] interactively update swatch and
-//                 - [ ] try async functions for paint & forecast if it lags, or failing that
-//                     - [ ] purge the whole color-coding feature
-//     - [X] find a way to set listbox bg color
-//     - [?] find a way to set listbox row bg color
-//         - [X] use 'depreciated' method for setting listrow bg color for now... latest method has run off down the fucking OOP rabbithole
 // - [?] compact-left bottom row of params (hbgrp) while keeping the reflow behavior - might have to do it manually
 // - [?] hunt down source of invalid-date warnings... checked date.valid() after every change and its all good, dunno where this is coming from
 // - [~] find an elegant way to switch between pre-filtering and post-filtering when isolating - need a tri-state toggle
-// - [~] fix the black-margin issue when scrollbars appear ... removed the margin
 // - [~] find an elegant way to handle every 90th and 91st day in alternating cycles (actual from a sydney utility company).
 // - [~] remember forecast list selection
-// moved to next month
 // - [ ] drag'n'drop reorder setup rule list
 // - [ ] move save/load to headerbar
 // - [ ] add overwrite confirmation dialog
-// - [ ] check for corrupt data in scenario files, in case they're manually edited
-// - [ ] check for out-of range data when setting list/combo selections
-// - [ ] add stacked bar graph
-// - [ ] color code bar graph using group colors
-// - [ ] add pan/zoom/reset to bar graph
-// - [ ] adapt bar graph vertical/horizontal to container aspect-ratio
-// - [ ] select bar to select rule
+// - [ ] check/fix corrupt data in scenario files, in case they're manually edited
+// - [ ] check/fix out-of range data when setting list/combo selections
+// - [!] add bar graph
+//     - [X] pack bars into container area
+//     - [X] adapt container height to bar num * bar height + gap
+//     - [X] update graph when relevant data is changed
+//     - [X] color code bar graph using group colors
+//     - [ ] add month blocks under bars in graph
+//         - [ ] add month block titles
+//     - [ ] select bar to select rule
+//     - [~] hover highlight for bars
+//     - [ ] select bar to show date : amt : running-total
+//         - [ ] use popover for the above
+//     - [ ] grid-lines and grid values
+//     - [ ] only draw graph if graph tab is selected
+// - [ ] add simple ascii plot to any available space after running total in forecast
+//     - [ ] pad running total
+//     - [ ] get remaining characters
+//     - [ ] plot using solid block
+//     - [ ] tint negative with red
+// - [~] don't forecast when changing stuff while setup tab is selected
 // - [ ] application icons
 
 using Gtk;
@@ -82,6 +68,9 @@ using Gtk;
 
 // use to prevent event-loops
 bool doupdate = true;
+
+// use to inhibit graph redraw
+bool drawit = true;
 
 // vala is super fussy about where variables live, so these have to be functions...
 string textcolor () { return "#55BDFF"; }
@@ -171,7 +160,7 @@ string htmlcol (int r, int g, int b) {
 
 // forecast per item
 nextdate[] findnextdate (string[] dt, int ownr) {
-	//print("\tfindnextdate started\n");
+	print("\tfindnextdate started\n");
 	int[] lastdayofmonth = {31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31};
 	var nt = new DateTime.now_local();
 	var ntd = nt.get_day_of_month();
@@ -397,13 +386,13 @@ nextdate[] findnextdate (string[] dt, int ownr) {
 			}
 		}
 	}
-	//print("\tfindnextdate completed\n");
+	print("\tfindnextdate completed\n");
 	return o;
 }
 
 // forecast everything in dat and render it
-void forecast (string[,] d, Gtk.ListBox w, bool iso, int srow) {
-	//print("forecast started\n");
+string[,] forecast (string[,] d, Gtk.ListBox w, bool iso, int srow) {
+	print("forecast started\n");
 // gtk widget clearing one-liner posted by Evan Nemerson: https://stackoverflow.com/questions/36215425/vala-how-do-you-delete-all-the-children-of-a-gtk-container
 	w.foreach ((element) => w.remove (element));
 	string[] forecasted = {};
@@ -450,7 +439,7 @@ void forecast (string[,] d, Gtk.ListBox w, bool iso, int srow) {
 		//string sgp = ("%-" + sls[1].to_string() + "s").printf(rfd.grp);
 		string sct = ("%-" + sls[2].to_string() + "s").printf(rfd.cat);
 		string sds = ("%-" + sls[4].to_string() + "s").printf(rfd.dsc);
-		txt = ((string) ch) + " : " + sct + " : " + amt + " : " + sds + ";" + (("%d").printf(rfd.frm)) + ";" + rfd.cco + ";" + rfd.gco;
+		txt = ((string) ch) + " : " + sct + " : " + amt + " : " + sds + ";" + (("%d").printf(rfd.frm)) + ";" + rfd.cco + ";" + rfd.gco + ";" + rfd.grp;
 		forecasted += txt;
 		//print("assembling raw forecast row: %s\n", txt);
 	}
@@ -460,9 +449,12 @@ void forecast (string[,] d, Gtk.ListBox w, bool iso, int srow) {
 
 	GLib.qsort_with_data<string> (forecasted, sizeof(string), (a, b) => GLib.strcmp (a, b));
 	double rut = 0.0;
+// fcdat = date, description, amount, cat, group, runningtotal, catcolor, groupcolor
+	string[,] fcdat = new string[forecasted.length,8];
 	for (var r = 0; r < forecasted.length; r++) {
 		if (forecasted[r] != null || forecasted[r].length > 0) {
 			string[] subs = forecasted[r].split(":");
+// running total has to be done after sorting
 			var amtnum = subs[2].strip();
 			if (amtnum != null || amtnum.length > 0) {
 				rut = rut + double.parse(amtnum);
@@ -474,10 +466,19 @@ void forecast (string[,] d, Gtk.ListBox w, bool iso, int srow) {
 			var mqq = "".concat("<span color='", fsb[3], "' font='monospace 12px'><b>", fsb[0].concat(" : ", ("%.2lf").printf(rut)), "</b></span>");
 			lbl.set_markup(mqq);
 			w.add(lbl);
+			fcdat[r,0] = subs[0].strip();
+			fcdat[r,1] = subs[3].strip();
+			fcdat[r,2] = subs[2].strip();
+			fcdat[r,3] = subs[1].strip();
+			fcdat[r,4] = fsb[4];
+			fcdat[r,5] = ("%.2lf").printf(rut);
+			fcdat[r,6] = fsb[2];
+			fcdat[r,7] = fsb[3];
 		}
 	}
 	w.show_all();
-	//print("forecast done\n");
+	return fcdat;
+	print("forecast done\n");
 }
 
 //paint setup list
@@ -486,7 +487,7 @@ void paintsetuplist(string[,] d, Gtk.ListBox b) {
 // takes group color, applies to text,
 // then tints the row using same color @ 0.25 alpha
 // categroy color not used in lists as it gets too messy
-	//print("\tpaintsetuplist started\n");
+	print("\tpaintsetuplist started\n");
 	var bs = b.get_selected_row();
 	var bsi = 0;
 	if (bs != null) { bsi = bs.get_index(); }
@@ -509,12 +510,12 @@ void paintsetuplist(string[,] d, Gtk.ListBox b) {
 		g.alpha = 1.0;
 		row.override_background_color(SELECTED, g);
 	}
-	//print("\tpaintsetuplist completed\n");
+	print("\tpaintsetuplist completed\n");
 }
 
 // gather unique group/category names
 string[] getchoicelist(string[,] d, int idx) {
-	//print("\t\tgetchoicelist started\n");
+	print("\t\tgetchoicelist started\n");
 	var whatupdate = doupdate;
 	doupdate = false;
 	var doit = true;
@@ -565,7 +566,7 @@ string[] getchoicelist(string[,] d, int idx) {
 	//doupdate = true;
 	//print("\n");
 	doupdate = whatupdate;
-	//print("\t\tgetchoicelist completed\n");
+	print("\t\tgetchoicelist completed\n");
 	return o;
 }
 
@@ -600,7 +601,7 @@ void adjustgroupcolor (string[,] d, Gtk.ListBox l, Entry h, double r, double g, 
 
 // select a row, update params accordingly
 void selectarow (string[,] dat, Gtk.ListBox b, Gtk.FlowBox fb, Gtk.ComboBoxText evrc, Gtk.ComboBoxText nthc, Gtk.ComboBoxText wkdc, Gtk.ComboBoxText fdyc, Gtk.ComboBoxText mthc, Gtk.ComboBoxText fmoc, Gtk.Entry dsct, Gtk.SpinButton fyes, Gtk.SpinButton amts, Gtk.ComboBoxText grpc, Gtk.ComboBoxText catc, Gtk.Button gcb) {
-	//print("\tselectarow started\n");
+	print("\tselectarow started\n");
 	doupdate = false;
 	var row = b.get_selected_row();
 	var i = 0;
@@ -680,7 +681,7 @@ void selectarow (string[,] dat, Gtk.ListBox b, Gtk.FlowBox fb, Gtk.ComboBoxText 
 // set foreground text
 	paintsetuplist(dat,b);
 	doupdate = true;
-	//print("\tselectarow completed\n");
+	print("\tselectarow completed\n");
 }
 
 //    gggggg uuuu  uu iiiiiiii
@@ -712,16 +713,24 @@ public class FTW : Window {
 	string[] mth = {"", "of every month", "of every 2nd month", "of every 3rd month", "of every 4th month", "of every 5th month", "of every 6th month", "of every 7th month", "of every 8th month", "of every 9th month", "of every 10th month", "of every 11th month", "of every 12th month"};
 	string[] fmo = {"from this month", "from january", "from february", "from march", "from april", "from may", "from june", "from july", "from august", "from september", "from october", "from november", "from december"};
 	string[] omo = {"of this month", "of january", "of february", "of march", "of april", "of may", "of june", "of july", "of august", "of september", "of october", "of november", "of december"};
+	private string[,] forecasted;
 
 	public FTW() {
-
-// add widgets
-
 		doupdate = false;
 		this.title = "fulltardie";
 		this.set_default_size(720, 500);
 		this.destroy.connect(Gtk.main_quit);
 		this.border_width = 10;
+		
+		int wx = 100;
+		int wy = 100;
+		this.get_size(out wx, out wy);
+		print("window size is: %dx%d\n",wx,wy);
+// access denied for dpi
+		//print("screen dpi is: %d\n",Gdk.Screen.get_resolution());
+
+// add widgets
+
 		Gtk.HeaderBar bar = new HeaderBar();
 		bar.show_close_button  = true;
 		bar.title = "fulltardie";
@@ -822,10 +831,6 @@ public class FTW : Window {
 		flowbox.add(fmocombo);
 		flowbox.add(fye);
 
-// add a space for scrolling
-
-		flowbox.margin_end = 70;
-
 // non date params
 
 		var dsc = new Entry();
@@ -839,6 +844,8 @@ public class FTW : Window {
 		var catcombo = new ComboBoxText.with_entry();
 		var ee = (Entry) catcombo.get_child();
 		ee.set_width_chars(8);
+		var grp = new Box(VERTICAL,10);
+		//grp.margin = 10;
 		var hgrp = new Box(HORIZONTAL,10);
 		hgrp.add(dsc);
 		var hbgrp = new FlowBox();
@@ -879,11 +886,11 @@ public class FTW : Window {
 		clb.set_max_width_chars(8);
 		Gtk.Label alb = new Label("amt");
 		alb.set_max_width_chars(8);
-		Gtk.ToggleButton iso = new ToggleButton.with_label("iso");
+		Gtk.ToggleButton iso = new ToggleButton.with_label("isolate");
 		var grpbox = new Box(HORIZONTAL,10);
 		var catbox = new Box(HORIZONTAL,10);
 		var amtbox = new Box(HORIZONTAL,10);
-		iso.set_halign(START);
+		iso.set_halign(END);
 		hbgrp.set_column_spacing(10);
 		grpbox.add(glb);
 		glb.set_halign(START);
@@ -900,24 +907,15 @@ public class FTW : Window {
 		hbgrp.add(grpbox);
 		hbgrp.add(catbox);
 		hbgrp.add(amtbox);
-		hbgrp.margin_end = 70;
-		hgrp.add(iso);
+		hbgrp.add(iso);
 		hgrp.add(addrule);
 		hgrp.add(remrule);
-		hgrp.margin_end = 70;
 
 // assemble params
 
-		var grp = new Box(VERTICAL,10);
-		var sgrp = new ScrolledWindow(null, null);
-		sgrp.propagate_natural_width = true;
-		sgrp.set_min_content_height( 50 );
-		sgrp.set_max_content_height( 700 );
-		grp.margin = 10;
 		grp.add(hgrp);
 		grp.add(flowbox);
 		grp.add(hbgrp);
-		sgrp.add(grp);
 
 // more containers
 
@@ -929,7 +927,7 @@ public class FTW : Window {
 		grid.set_row_spacing(5);
 		grid.set_column_spacing(5);
 		//grid.attach(setuplistcontainer,0,0,1,1);
-		grid.attach(sgrp,0,1,1,1);
+		grid.attach(grp,0,1,1,1);
 		grid.set_baseline_row(1);
 		//setuppage.add(grid);
 
@@ -956,10 +954,75 @@ public class FTW : Window {
 		label2.set_markup("<b><big>setup</big></b>");
 		var label3 = new Label(null);
 		label3.set_markup("<b><big>forecast</big></b>");
+
+// graph page
+
+		var graphpage = new ScrolledWindow(null, null);
+		var label4 = new Label(null);
+		label4.set_markup("<b><big>graph</big></b>");
+		var graphimg = new Gtk.DrawingArea();
+		//graphimg.width_request = 300;
+		graphimg.draw.connect((ctx) => {
+			if (drawit) {
+				graphimg.height_request = forecasted.length[0] * 5;
+				var gxx = graphpage.get_allocated_width();
+				var minrt = 999999999.0;
+				var maxrt = -999999999.0;
+				for (int i = 0; i < forecasted.length[0]; i++) {
+					if (forecasted[i,5] != "") {
+						maxrt = double.max(maxrt, double.parse(forecasted[i,5]));
+						minrt = double.min(minrt, double.parse(forecasted[i,5]));
+					}
+				}
+				var zro = minrt.abs();
+				var xmx = zro + maxrt;
+				var sfc = ((double) gxx) / xmx;
+				zro = zro * sfc;
+				//graphpage.get_size_request (out gxx, out gyy);
+				//print("graphpage size x = %d\n", graphpage.get_allocated_width() );
+				var bc = new Gdk.RGBA();
+				var xx = 0.0;
+// forecasted = date, description, amount, cat, group, runningtotal, catcolor, groupcolor
+				for (int i = 0; i < forecasted.length[0]; i++) {
+					xx = 0.0;
+					//print("graphing %s\n", forecasted[i,1]);
+					if (forecasted[i,5] != "") {
+						//print("extracting running total: %s\n", forecasted[i,5]);
+						xx = double.parse(forecasted[i,5]);
+					}
+					if (forecasted[i,7] != "") {
+						if(bc.parse(forecasted[i,7])) {
+							//print("extracting group color: %s\n", forecasted[i,7]);
+						} else {
+							bc.parse(textcolor());
+						}
+					}
+					xx = xx * sfc;
+					var px = double.min((zro + xx),zro);
+					ctx.set_source_rgba(bc.red,bc.green,bc.blue,1);
+					//print("zero = %f\n", zro);
+					//print("xx = %f\n", xx);
+					//print("scale factor = %f\n", sfc);
+					//print("pos.x = %f\n", px);
+					//print("(zero + xx) = %f\n\n", (zro + xx));
+					//xx = ((zro + xx) * sfc);
+					ctx.rectangle(((int) px), (i * 5), ((int) xx.abs()), 4);
+					//ctx.rectangle(5,(i * 11),580,10);
+					ctx.fill ();
+				}
+			}
+			return true;
+		});
+		graphpage.add(graphimg);
+
+// add pages to notebook
+
 		notebook.append_page(setuppage, label2);
 		notebook.append_page(forecastpage, label3);
+		notebook.append_page(graphpage, label4); 
 
 // select row
+
 		var row = setuplist.get_row_at_index(0);
 		selectarow (dat, setuplist, flowbox, evrcombo, nthcombo, wkdcombo, fdycombo, mthcombo, fmocombo, dsc, fye, amtf, grpcombo, catcombo, grpcolb);
 		doupdate = true;
@@ -976,13 +1039,14 @@ public class FTW : Window {
 			var s = setuplist.get_selected_row();
 			var r = 0;
 			if (s != null) { r = s.get_index(); }
-			forecast(dat,forecastlistbox, iso.get_active(), r);
+			forecasted = forecast(dat,forecastlistbox, iso.get_active(), r);
+			graphimg.queue_draw ();
 		});
 
 // setup list item select action
 
 		setuplist.row_selected.connect ((row) => {
-			//print("selecting a row...\n");
+			print("selecting a row...\n");
 			if (doupdate) {
 				selectarow (dat, setuplist, flowbox, evrcombo, nthcombo, wkdcombo, fdycombo, mthcombo, fmocombo, dsc, fye, amtf, grpcombo, catcombo, grpcolb);
 			}
@@ -1018,7 +1082,8 @@ public class FTW : Window {
 				if (s != null) { 
 					r = s.get_index(); 
 					dat[r,0] = n.to_string();
-					forecast(dat,forecastlistbox, iso.get_active(), r);
+					forecasted = forecast(dat,forecastlistbox, iso.get_active(), r);
+					graphimg.queue_draw ();
 					//print ( "evrcombo.changed: dat[%d,%d] = %s\n", r, 0, dat[r,0]);
 				}
 			}
@@ -1031,7 +1096,8 @@ public class FTW : Window {
 				if (s != null) { 
 					r = s.get_index();
 					dat[r,1] = n.to_string();
-					forecast(dat,forecastlistbox, iso.get_active(), r);
+					forecasted = forecast(dat,forecastlistbox, iso.get_active(), r);
+					graphimg.queue_draw ();
 					//print ( "dat[%d,%d] = %s\n", r, 0, dat[r,1]);
 				}
 			}
@@ -1062,7 +1128,8 @@ public class FTW : Window {
 							flowbox.get_child_at_index(2).add(wkdcombo);
 						}
 					}
-					forecast(dat,forecastlistbox, iso.get_active(), r);
+					forecasted = forecast(dat,forecastlistbox, iso.get_active(), r);
+					graphimg.queue_draw ();
 				}
 			}
 		});
@@ -1074,7 +1141,8 @@ public class FTW : Window {
 				if (s != null) { 
 					r = s.get_index();
 					dat[r,3] = n.to_string();
-					forecast(dat,forecastlistbox, iso.get_active(), r);
+					forecasted = forecast(dat,forecastlistbox, iso.get_active(), r);
+					graphimg.queue_draw ();
 					//print ( "dat[%d,%d] = %s\n", r, 0, dat[r,3]);
 				}
 			}
@@ -1098,7 +1166,8 @@ public class FTW : Window {
 					}
 					fmocombo.set_active(ffs);
 					doupdate = true;
-					forecast(dat,forecastlistbox, iso.get_active(), r);
+					forecasted = forecast(dat,forecastlistbox, iso.get_active(), r);
+					graphimg.queue_draw ();
 					//print ( "dat[%d,%d] = %s\n", r, 0, dat[r,4]);
 				}
 			}
@@ -1111,7 +1180,8 @@ public class FTW : Window {
 				if (s != null) {
 					r = s.get_index();
 					dat[r,5] = n.to_string();
-					forecast(dat,forecastlistbox, iso.get_active(), r);
+					forecasted = forecast(dat,forecastlistbox, iso.get_active(), r);
+					graphimg.queue_draw ();
 					//print ( "dat[%d,%d] = %s\n", r, 0, dat[r,5]);
 				}
 			}
@@ -1127,7 +1197,8 @@ public class FTW : Window {
 					} else {
 						dat[r,6] = ((string) ("%lf").printf(fye.get_value()));
 					}
-					forecast(dat,forecastlistbox, iso.get_active(), r);
+					forecasted = forecast(dat,forecastlistbox, iso.get_active(), r);
+					graphimg.queue_draw ();
 				}
 			}
 		});
@@ -1139,7 +1210,7 @@ public class FTW : Window {
 				if (s != null) { 
 					r = s.get_index();
 					dat[r,9] = n;
-					forecast(dat,forecastlistbox, iso.get_active(), r);
+					forecasted = forecast(dat,forecastlistbox, iso.get_active(), r);
 				}
 			}
 		});
@@ -1151,7 +1222,7 @@ public class FTW : Window {
 				if (s != null) { 
 					r = s.get_index();
 					dat[r,8] = n;
-					forecast(dat,forecastlistbox, iso.get_active(), r);
+					forecasted = forecast(dat,forecastlistbox, iso.get_active(), r);
 				}
 			}
 		});
@@ -1171,7 +1242,7 @@ public class FTW : Window {
 						if (cc[j] == n) { r = j; }
 					}
 					catcombo.set_active(r);
-					forecast(dat,forecastlistbox, iso.get_active(), r);
+					forecasted = forecast(dat,forecastlistbox, iso.get_active(), r);
 					//print("category text entered: %s\n", ee.text );
 					doupdate = true;
 				}
@@ -1193,7 +1264,7 @@ public class FTW : Window {
 						if (cc[j] == n) { r = j; }
 					}
 					grpcombo.set_active(r);
-					forecast(dat,forecastlistbox, iso.get_active(), r);
+					forecasted = forecast(dat,forecastlistbox, iso.get_active(), r);
 					doupdate = true;
 				}
 			}
@@ -1204,7 +1275,8 @@ public class FTW : Window {
 				var r = 0;
 				if (s != null) { r = s.get_index(); }
 				dat[r,7] =((string) ("%.2lf").printf(amtf.get_value()));;
-				forecast(dat,forecastlistbox, iso.get_active(), r);
+				forecasted = forecast(dat,forecastlistbox, iso.get_active(), r);
+				graphimg.queue_draw ();
 			}
 		});
 		iso.toggled.connect(() => {
@@ -1213,7 +1285,8 @@ public class FTW : Window {
 				var r = 0;
 				if (s != null) { 
 					r = s.get_index();
-					forecast(dat,forecastlistbox, iso.get_active(), r);
+					forecasted = forecast(dat,forecastlistbox, iso.get_active(), r);
+					graphimg.queue_draw ();
 				}
 			}
 		});
@@ -1233,7 +1306,7 @@ public class FTW : Window {
 							var mq = "".concat("<span color='", rowcolor(), "' font='monospace 16px'><b>", dat[r,10], "</b></span>");
 							doupdate = false;
 							l.set_markup(mq);
-							forecast(dat,forecastlistbox, iso.get_active(), r);
+							forecasted = forecast(dat,forecastlistbox, iso.get_active(), r);
 							doupdate = true;
 						}
 					}
@@ -1370,7 +1443,8 @@ public class FTW : Window {
 									row = setuplist.get_row_at_index(0);
 									doupdate = false; setuplist.select_row(row); doupdate = true;
 									selectarow (dat, setuplist, flowbox, evrcombo, nthcombo, wkdcombo, fdycombo, mthcombo, fmocombo, dsc, fye, amtf, grpcombo, catcombo, grpcolb);
-									forecast(dat,forecastlistbox, iso.get_active(), 0);
+									forecasted = forecast(dat,forecastlistbox, iso.get_active(), 0);
+									graphimg.queue_draw ();
 								}
 							}
 							spop.popdown();
@@ -1430,7 +1504,8 @@ public class FTW : Window {
 				row = setuplist.get_row_at_index((dat.length[0] - 1));
 				doupdate = false; setuplist.select_row(row); doupdate = true;
 				selectarow (dat, setuplist, flowbox, evrcombo, nthcombo, wkdcombo, fdycombo, mthcombo, fmocombo, dsc, fye, amtf, grpcombo, catcombo, grpcolb);
-				forecast(dat,forecastlistbox, iso.get_active(), (dat.length[0] - 1));
+				forecasted = forecast(dat,forecastlistbox, iso.get_active(), (dat.length[0] - 1));
+				graphimg.queue_draw ();
 			}
 		});
 		remrule.clicked.connect (() =>  {
@@ -1464,24 +1539,8 @@ public class FTW : Window {
 				row = setuplist.get_row_at_index((dat.length[0] - 1));
 				doupdate = false; setuplist.select_row(row); doupdate = true;
 				selectarow (dat, setuplist, flowbox, evrcombo, nthcombo, wkdcombo, fdycombo, mthcombo, fmocombo, dsc, fye, amtf, grpcombo, catcombo, grpcolb);
-				forecast(dat,forecastlistbox, iso.get_active(), (dat.length[0] - 1));
-			}
-		});
-// prevent params from taking up the whole screen on super-low-res displays
-		this.size_allocate.connect (() => {
-			if (doupdate) {
-				double wx = 100;
-				double wy = 100;
-				this.get_size(out wx, out wy);
-				var c = 0.0;
-				c = double.min(double.max( 0.0, ((wx - 330.0) / 300.0)),0.25);
-				c = 1.0 - c;
-				int yy = ((int) (c * 200.0));
-				//print("window size x is: %f, sfac is: %f, new size is: %d\n", wx, c, yy);
-				doupdate = false;
-				sgrp.set_min_content_height( yy );
-				doupdate = true;
-				//return false;
+				forecasted = forecast(dat,forecastlistbox, iso.get_active(), (dat.length[0] - 1));
+				graphimg.queue_draw ();
 			}
 		});
 	}
