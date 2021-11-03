@@ -8,9 +8,20 @@
 // tested OK on Linux 4.19.0-17-amd64, Xfce 4.14
 // tested OK on Linux 5.10-sunxi64, Gnome 40.5
 //
-// *** minimal safety atm; can/will segfault without too much effort ***
-// not usable on pinephone/phosh at default 200% scaling atm; need re-think how to edit params and see results at the same time
-// 150% scaling is good for now though
+// *** minimal safety atm; you can hit a segfault without too much effort ***
+// not usable on pinephone/phosh at default 200% scaling atm; need re-think how to edit params and see results at the same time,
+// 150% scaling is good for now, but there are still issues with fields stealing focus, 
+// invoking a horrid phosh vkb jank-fest requiring much repeated thumbing of the screen to remedy...
+// it'll take me a while to come up with a more tolerable pinephone experience
+//
+// acknowledgements:
+// hsvtorgb based on hsv-lab.r by Christopher Ross-Gill: http://www.rebol.org/view-script.r?script=hsv-lab.r
+// dmod based on answer by 'cdeerinck': https://stackoverflow.com/questions/41180292/negative-number-modulo-in-swift#41180619
+// lymd based on most Rosetta Code solutions to this task
+// gtk widget clearing one-liner by Evan Nemerson: https://stackoverflow.com/questions/36215425/vala-how-do-you-delete-all-the-children-of-a-gtk-container
+//
+// otherwise, mostly written via brute force trial & error thanks to Vala's amazing lack of straightforward examples
+// also on that note: OOP is a fucking mental illness. I miss being able to do stuff like button.color = red
 //
 // example usage: 
 // mkdir ~/Desktop/fulltardie && cd ~/Desktop/fulltardie
@@ -27,13 +38,13 @@
 // [~] = should do it but probably wont
 // [?] = stuck
 //
-// - [ ] hunt down the negative spike that's hitting the graph but not the forecast in some scenarios
-// - [X] clamp out of range dates for weekday on-or-before
+// - [ ] hunt down rare segfault that may happen after going from: graph -> isolate -> forecast
+// - [!] hunt down the negative spike that's hitting the graph but not the forecast in some scenarios
+//     - [ ] this isn't happening on pinephone, investigate cairo issues on x86-64
 // - [ ] set rule group color when group is selected
 // - [ ] set rule category color when group is selected
 // - [ ] re-draw forecast when changing group color if it doesn't lag -- test on pinephone
 // - [ ] re-draw graph when changing group color if it doesn't lag -- test on pinephone
-// - [X] fix corrupted color vals when adding a new item
 // - [!] change nth weekday counting to use 1st and nth
 //     - [ ] test it more thoroughly against actuals
 // - [?] compact params as much as possible, get it working with 200% scaling on pinephone
@@ -64,30 +75,42 @@
 //     - [X] color code bar graph using group colors
 //     - [X] add month blocks under bars in graph
 //         - [X] add month block titles
-//     - [ ] expand bar width in isolate mode
-//     - [?] select bar to select rule
-//     - [~] hover highlight for bars
+//     - [ ] expand bar graph to fit container height when its smaller
+//         - [ ] change graph scale logic to allow scaling and padding
+//     - [!] select bar to select rule
+//         - [X] find out what click event works with drawingArea or context
+//             - [X] find out how to get mouse xy pos in event
+//         - [!] fix misbehaving selectedrule getting/setting for draw event
 //     - [?] select bar to show date : amt : running-total
-//         - [ ] use popover for the above
+//         - [ ] render comment bubble for the above
 //     - [ ] grid-lines and grid values
 //     - [ ] only draw graph if graph tab is selected
 //     - [!] add padding around min/max vals; don't draw bars to the edge of the container
 //         - [ ] fix padding when forecast is negative vals only
 //     - [ ] investigate mmb pan
 //         - [ ] don't pan past extents
+//     - [ ] investigate drag-pan
+//     - [ ] remove scrollwindow container if panning works
 //     - [ ] investigate rmb zoom
 //         - [ ] mmb + mouse x = zoom x
 //         - [ ] mmb + mouse y = zoom y
 //         - [ ] zoom about mouse xy
 //         - [ ] don't zoom past extents
-//     - [ ] if pan/zoom works, set 'f' to fit (reset view)
+//     - [ ] investigate pinch zoom for touch
+//     - [ ] if pan/zoom works, set double-click(tap) to fit (reset view)
 // - [ ] add simple ascii plot to any available space after running total in forecast
 //     - [ ] pad running total
 //     - [ ] get remaining characters
 //     - [ ] plot using solid block
 //     - [ ] tint negative with red
+//     - [ ] tint positive with green
 // - [~] don't forecast when changing stuff while setup tab is selected
 // - [ ] application icons
+//
+// moved to dec
+// - [ ] optimize var usage
+// - [ ] add indented diagnostics to everything (see pile.ms)
+// - [ ] check diagnostics for redundant work and optimize
 
 using Gtk;
 
@@ -441,7 +464,7 @@ string[,] forecast (string[,] d, Gtk.ListBox w, bool iso, int srow) {
 	print("forecast started\n");
 // gtk widget clearing one-liner posted by Evan Nemerson: https://stackoverflow.com/questions/36215425/vala-how-do-you-delete-all-the-children-of-a-gtk-container
 	w.foreach ((element) => w.remove (element));
-	string[] forecasted = {};
+	string[] rendered = {};
 
 // pad lengths: date, group, category, amount, description
 
@@ -486,20 +509,21 @@ string[,] forecast (string[,] d, Gtk.ListBox w, bool iso, int srow) {
 		string sct = ("%-" + sls[2].to_string() + "s").printf(rfd.cat);
 		string sds = ("%-" + sls[4].to_string() + "s").printf(rfd.dsc);
 		txt = ((string) ch) + " : " + sct + " : " + amt + " : " + sds + ";" + (("%d").printf(rfd.frm)) + ";" + rfd.cco + ";" + rfd.gco + ";" + rfd.grp;
-		forecasted += txt;
+		rendered += txt;
 		//print("assembling raw forecast row: %s\n", txt);
 	}
 
 // sorting a string before post-processing
 // this is a stupid workaround to vala's basic array handling
 
-	GLib.qsort_with_data<string> (forecasted, sizeof(string), (a, b) => GLib.strcmp (a, b));
+	GLib.qsort_with_data<string> (rendered, sizeof(string), (a, b) => GLib.strcmp (a, b));
 	double rut = 0.0;
-// fcdat = date, description, amount, cat, group, runningtotal, catcolor, groupcolor
-	string[,] fcdat = new string[forecasted.length,8];
-	for (var r = 0; r < forecasted.length; r++) {
-		if (forecasted[r] != null || forecasted[r].length > 0) {
-			string[] subs = forecasted[r].split(":");
+// fcdat = date, description, amount, cat, group, runningtotal, catcolor, groupcolor, owner
+	string[,] fcdat = new string[rendered.length,9];
+	for (var r = 0; r < rendered.length; r++) {
+		if (rendered[r] != null || rendered[r].length > 0) {
+			string[] fsb = rendered[r].split(";");
+			string[] subs = fsb[0].split(":");
 // running total has to be done after sorting
 			var amtnum = subs[2].strip();
 			if (amtnum != null || amtnum.length > 0) {
@@ -507,7 +531,6 @@ string[,] forecast (string[,] d, Gtk.ListBox w, bool iso, int srow) {
 			}
 			var lbl = new Label("");
 			lbl.xalign = ((float) 0.0);
-			string[] fsb = forecasted[r].split(";");
 			lbl.set_tooltip_text(fsb[1]);
 			var mqq = "".concat("<span color='", fsb[3], "' font='monospace 12px'><b>", fsb[0].concat(" : ", ("%.2lf").printf(rut)), "</b></span>");
 			lbl.set_markup(mqq);
@@ -520,9 +543,16 @@ string[,] forecast (string[,] d, Gtk.ListBox w, bool iso, int srow) {
 			fcdat[r,5] = ("%.2lf").printf(rut);
 			fcdat[r,6] = fsb[2];
 			fcdat[r,7] = fsb[3];
+			fcdat[r,8] = fsb[1];
 		}
 	}
 	w.show_all();
+	print("forecast: fcdat[0,8] = %s\n", fcdat[0,8]);
+	//for (var r = 0; r < fcdat.length[0]; r++) {
+	//	for (var i = 0; i < fcdat.length[1]; i++) {
+	//		print("forecast: \tfcdat[%d,%d] = %s\n", r, i, fcdat[r,i]);
+	//	}
+	//}
 	return fcdat;
 	print("forecast done\n");
 }
@@ -748,6 +778,7 @@ public class FTW : Window {
 	//private ListBox forecastlistbox;
 	private Popover spop;
 	private Popover gpop;
+	private double[] graphtarg;
 	string[,] dat = {
 		{"1","1","7","0","1","7","0","-5.00","grocery","home","every sunday of every month starting from this september","",""},
 		{"2","2","1","0","1","0","0","-10.0","train","work","every 2nd and 4th monday of every month starting this month","",""},
@@ -766,8 +797,10 @@ public class FTW : Window {
 	string[] fmo = {"from this month", "from january", "from february", "from march", "from april", "from may", "from june", "from july", "from august", "from september", "from october", "from november", "from december"};
 	string[] omo = {"of this month", "of january", "of february", "of march", "of april", "of may", "of june", "of july", "of august", "of september", "of october", "of november", "of december"};
 	private string[,] forecasted;
+	private int selectedrule;
 
 	public FTW() {
+		graphtarg = {0.0,0.0};
 		doupdate = false;
 		this.title = "fulltardie";
 		this.set_default_size(720, 500);
@@ -1016,10 +1049,26 @@ public class FTW : Window {
 		var graphimg = new Gtk.DrawingArea();
 // graph draw -- move to events below once its allgood
 		graphimg.draw.connect((ctx) => {
+			print("\ngraphimg.draw: started...\n");
 // use drawit to block drawing under some contitions
 			if (drawit) {
-				graphimg.height_request = forecasted.length[0] * 5;
+				print("graphimg.draw: \tincoming selectedrule = %d\n", selectedrule);
+				//print("graphimg.draw: forecasted[0,0] = %s\n", forecasted[0,0]);
+				//print("graphimg.draw: forecasted[0,1] = %s\n", forecasted[0,1]);
+				//print("graphimg.draw: forecasted[0,2] = %s\n", forecasted[0,2]);
+				//print("graphimg.draw: forecasted[0,3] = %s\n", forecasted[0,3]);
+				//print("graphimg.draw: forecasted[0,4] = %s\n", forecasted[0,4]);
+				//print("graphimg.draw: forecasted[0,5] = %s\n", forecasted[0,5]);
+				//print("graphimg.draw: forecasted[0,6] = %s\n", forecasted[0,6]);
+				//print("graphimg.draw: forecasted[0,7] = %s\n", forecasted[0,7]);
+				//print("graphimg.draw: forecasted[0,8] = %s\n", forecasted[0,8]);
+				var presel = selectedrule;
+// bar height
+				var barh = 10;
+				//print("graphtarg.x = %f, graphtarg.y = %f\n", graphtarg[0],graphtarg[1]);
+				graphimg.height_request = forecasted.length[0] * barh;
 				var gxx = graphpage.get_allocated_width();
+// graph margin
 				gxx = gxx - 80;
 // get min/max vals from running total
 				var minrt = 999999999.0;
@@ -1052,7 +1101,7 @@ public class FTW : Window {
 // extract month from forecasted,
 // this has to be done via strings thanks to vala's severely limited arrays
 // but seems to be quick enough for now
-// forecasted = date, description, amount, cat, group, runningtotal, catcolor, groupcolor
+// forecasted = date, description, amount, cat, group, runningtotal, catcolor, groupcolor, owner
 // mol = # trans per month
 // mox = month number
 // eg: mol[2] = 8 tansactions, mox[2] = october
@@ -1063,7 +1112,7 @@ public class FTW : Window {
 							var midx = (int.parse(dseg[1]) - 1);
 // the incoming data is sorted, so grow the month arrays when a change is detected
 							if (midx != mmy) { mmy = midx; mrk += 1; mol += 0; mox += 0; }
-							mol[mrk] += 5;
+							mol[mrk] += barh;
 							mox[mrk] = mmy;
 						}
 					}
@@ -1091,9 +1140,34 @@ public class FTW : Window {
 					ctx.show_text(motx);
 					stackmo += mol[i];
 				}
+// check selection hit
+				//print("graphimg.draw: graphtarg.x = %f\n", graphtarg[0]);
+				//print("graphimg.draw: graphtarg.y = %f\n", graphtarg[1]);
+				var px = 0.0;
+				if (graphtarg[0] >= 0) {
+					for (int i = 0; i < forecasted.length[0]; i++) {
+						xx = 0.0;
+						if (forecasted[i,5] != "") { 
+							xx = double.parse(forecasted[i,5]);
+							xx = xx * sfc;
+							xx = Math.floor(xx);
+							px = double.min((zro + xx),zro);
+							px = Math.floor(px);
+							//print("graphimg.draw: \tchecking hit box: %f,%f -- %f,%f\n", px,(px + xx.abs()), (i * barh), ((i * barh) + (barh - 1)));
+							if (graphtarg[0] > px && graphtarg[0] < (px + xx.abs())) {
+								if (graphtarg[1] > (i * barh) && graphtarg[1] < ((i * barh) + (barh - 1))) {
+									//bc.red = 1.0; bc.green = 0.3; bc.blue = 0.0;
+									print("graphimg.draw: \t\tchanging selectedrule to: %s\n", forecasted[i,8]);
+									selectedrule = int.parse(forecasted[i,8]);
+								}
+							}
+						}
+					}
+				}
 // draw bars for running total
 				for (int i = 0; i < forecasted.length[0]; i++) {
 					xx = 0.0;
+					px = 0.0;
 					//print("graphing %s\n", forecasted[i,1]);
 					
 					if (forecasted[i,5] != "") {
@@ -1109,9 +1183,9 @@ public class FTW : Window {
 					}
 					xx = xx * sfc;
 					xx = Math.floor(xx);
-					
-					var px = double.min((zro + xx),zro);
+					px = double.min((zro + xx),zro);
 					px = Math.floor(px);
+					if (selectedrule == int.parse(forecasted[i,8])) { bc.red = 1.0; bc.green = 1.0; bc.blue = 1.0; }
 					ctx.set_source_rgba(bc.red,bc.green,bc.blue,0.9);
 // sanity checks
 					//print("zero = %f\n", zro);
@@ -1121,10 +1195,27 @@ public class FTW : Window {
 					//print("(zero + xx) = %f\n\n", (zro + xx));
 					//xx = ((zro + xx) * sfc);
 // the actual bar
-					ctx.rectangle(((int) px), (i * 5), ((int) xx.abs()), 4);
+					ctx.rectangle(((int) px), (i * barh), ((int) xx.abs()), (barh - 1));
 					ctx.fill ();
 				}
+				if (selectedrule >= 0 && selectedrule != presel) {
+					print("graphimg.draw: \tselectrule changed from: %d to: %d\n", presel, selectedrule);
+					var row = setuplist.get_row_at_index(selectedrule);
+					if (row != null) {
+						doupdate = false; setuplist.select_row(row); doupdate = true;
+						selectarow (dat, setuplist, flowbox, evrcombo, nthcombo, wkdcombo, fdycombo, mthcombo, fmocombo, dsc, fye, amtf, grpcombo, catcombo, grpcolb);
+					}
+				}
+				graphtarg[0] = -100;
+				graphtarg[1] = -100;
 			}
+			print("graphimg.draw: complete\n\n");
+			return true;
+		});
+		graphimg.set_events (Gdk.EventMask.BUTTON_PRESS_MASK);
+		graphimg.button_press_event.connect ((event) => {
+			graphtarg = {event.x, event.y};
+			graphimg.queue_draw();
 			return true;
 		});
 		graphpage.add(graphimg);
@@ -1137,24 +1228,30 @@ public class FTW : Window {
 
 // select row
 
+		graphtarg[0] = -100;
+		graphtarg[1] = -100;
 		var row = setuplist.get_row_at_index(0);
+		selectedrule = 0;
 		selectarow (dat, setuplist, flowbox, evrcombo, nthcombo, wkdcombo, fdycombo, mthcombo, fmocombo, dsc, fye, amtf, grpcombo, catcombo, grpcolb);
 		doupdate = true;
 
-//  eeeeee vv  vv eeeeee nnnn   tttttt   ssss
-//  ee     vv  vv ee     nn  nn   tt   ss
-//  eeee   vv  vv eeee   nn  nn   tt     ss
-//  ee     vv  vv ee     nn  nn   tt       ss
-//  eeeeee   vv   eeeeee nn  nn   tt   ssss
+//  EEEEEEEE VVVV  VV EEEEEEEE NNNNNN   TTTTTTTT   SSSSSS
+//  EEEE     VVVV  VV EEEE     NNNN  NN   TTTT   SSSS
+//  EEEEEE   VVVV  VV EEEEEE   NNNN  NN   TTTT     SSSS
+//  EEEE     VVVV  VV EEEE     NNNN  NN   TTTT       SSSS
+//  EEEEEEEE   VVVV   EEEEEEEE NNNN  NN   TTTT   SSSSSS
 
 //tab panel selection action
 
 		notebook.switch_page.connect ((page, page_num) => {
 			var s = setuplist.get_selected_row();
 			var r = 0;
-			if (s != null) { r = s.get_index(); }
-			forecasted = forecast(dat,forecastlistbox, iso.get_active(), r);
-			graphimg.queue_draw ();
+			if (s != null) { 
+				r = s.get_index();
+				forecasted = forecast(dat,forecastlistbox, iso.get_active(), r);
+				print("notebook.switch_page.connect: forecasted[0,8] = %s\n", forecasted[r,8]);
+				graphimg.queue_draw ();
+			}
 		});
 
 // setup list item select action
@@ -1162,6 +1259,7 @@ public class FTW : Window {
 		setuplist.row_selected.connect ((row) => {
 			print("selecting a row...\n");
 			if (doupdate) {
+				selectedrule = row.get_index();
 				selectarow (dat, setuplist, flowbox, evrcombo, nthcombo, wkdcombo, fdycombo, mthcombo, fmocombo, dsc, fye, amtf, grpcombo, catcombo, grpcolb);
 			}
 		});
@@ -1178,6 +1276,7 @@ public class FTW : Window {
 					//print("selected forecast row label tooltip: %s\n", ll.tooltip_text);
 					if (ll.tooltip_text != null) {
 						var own = int.parse(ll.tooltip_text);
+						selectedrule = own;
 						row = setuplist.get_row_at_index(own);
 						doupdate = false; setuplist.select_row(row); doupdate = true;
 						selectarow (dat, setuplist, flowbox, evrcombo, nthcombo, wkdcombo, fdycombo, mthcombo, fmocombo, dsc, fye, amtf, grpcombo, catcombo, grpcolb);
@@ -1554,6 +1653,7 @@ public class FTW : Window {
 									}
 									setuplist.show_all();
 									scene.text = exts[0];
+									selectedrule = 0;
 									row = setuplist.get_row_at_index(0);
 									doupdate = false; setuplist.select_row(row); doupdate = true;
 									selectarow (dat, setuplist, flowbox, evrcombo, nthcombo, wkdcombo, fdycombo, mthcombo, fmocombo, dsc, fye, amtf, grpcombo, catcombo, grpcolb);
@@ -1615,6 +1715,7 @@ public class FTW : Window {
 					setuplist.insert(ll,-1);
 				}
 				setuplist.show_all();
+				selectedrule = (dat.length[0] - 1);
 				row = setuplist.get_row_at_index((dat.length[0] - 1));
 				doupdate = false; setuplist.select_row(row); doupdate = true;
 				selectarow (dat, setuplist, flowbox, evrcombo, nthcombo, wkdcombo, fdycombo, mthcombo, fmocombo, dsc, fye, amtf, grpcombo, catcombo, grpcolb);
@@ -1650,6 +1751,7 @@ public class FTW : Window {
 					setuplist.insert(ll,-1);
 				}
 				setuplist.show_all();
+				selectedrule = (dat.length[0] - 1);
 				row = setuplist.get_row_at_index((dat.length[0] - 1));
 				doupdate = false; setuplist.select_row(row); doupdate = true;
 				selectarow (dat, setuplist, flowbox, evrcombo, nthcombo, wkdcombo, fdycombo, mthcombo, fmocombo, dsc, fye, amtf, grpcombo, catcombo, grpcolb);
