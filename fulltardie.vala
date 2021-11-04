@@ -778,7 +778,12 @@ public class FTW : Window {
 	//private ListBox forecastlistbox;
 	private Popover spop;
 	private Popover gpop;
+	private int barh;
+	private int oldbarh;
 	private double[] graphtarg;
+	private double[] graphzoomxy;
+	private bool graphzoom;
+	private bool graphpick;
 	string[,] dat = {
 		{"1","1","7","0","1","7","0","-5.00","grocery","home","every sunday of every month starting from this september","",""},
 		{"2","2","1","0","1","0","0","-10.0","train","work","every 2nd and 4th monday of every month starting this month","",""},
@@ -800,7 +805,11 @@ public class FTW : Window {
 	private int selectedrule;
 
 	public FTW() {
+		barh = 10;
+		oldbarh = 10;
 		graphtarg = {0.0,0.0};
+		graphzoomxy = {0.0,0.0};
+		graphzoom = false;
 		doupdate = false;
 		this.title = "fulltardie";
 		this.set_default_size(720, 500);
@@ -1052,7 +1061,7 @@ public class FTW : Window {
 			print("\ngraphimg.draw: started...\n");
 // use drawit to block drawing under some contitions
 			if (drawit) {
-				print("graphimg.draw: \tincoming selectedrule = %d\n", selectedrule);
+				//print("graphimg.draw: \tincoming selectedrule = %d\n", selectedrule);
 				//print("graphimg.draw: forecasted[0,0] = %s\n", forecasted[0,0]);
 				//print("graphimg.draw: forecasted[0,1] = %s\n", forecasted[0,1]);
 				//print("graphimg.draw: forecasted[0,2] = %s\n", forecasted[0,2]);
@@ -1064,9 +1073,12 @@ public class FTW : Window {
 				//print("graphimg.draw: forecasted[0,8] = %s\n", forecasted[0,8]);
 				var presel = selectedrule;
 // bar height
-				var barh = 10;
+				if (graphzoom) {
+					//print("graphimg.draw: \tzoom.y - targ.y = %f\n",(graphzoomxy[1] - graphtarg[0]));
+					barh = int.min(100,int.max(5,oldbarh + ((int) ((graphzoomxy[1] - graphtarg[1]) * 0.05))));
+				}
 				//print("graphtarg.x = %f, graphtarg.y = %f\n", graphtarg[0],graphtarg[1]);
-				graphimg.height_request = forecasted.length[0] * barh;
+				graphimg.height_request = (forecasted.length[0] * barh) + (barh + 40);
 				var gxx = graphpage.get_allocated_width();
 // graph margin
 				gxx = gxx - 80;
@@ -1080,7 +1092,6 @@ public class FTW : Window {
 					}
 				}
 // get x scale & zero, scale both to container
-// TODO : these need to be rounded up to int (ceil), but using GLib.Math is a pain...
 				var zro = minrt.abs();
 				var xmx = zro + maxrt;
 				var sfc = ((double) gxx) / xmx;
@@ -1143,8 +1154,10 @@ public class FTW : Window {
 // check selection hit
 				//print("graphimg.draw: graphtarg.x = %f\n", graphtarg[0]);
 				//print("graphimg.draw: graphtarg.y = %f\n", graphtarg[1]);
+				//if (graphzoom) { print("graphimg.draw: graphzoom = true\n"); } else { print("graphimg.draw: graphzoom = false\n"); } 
 				var px = 0.0;
-				if (graphtarg[0] >= 0) {
+				var selectedtrns = 99999;
+				if (graphpick && graphtarg[0] >= 0 && graphzoom == false) {
 					for (int i = 0; i < forecasted.length[0]; i++) {
 						xx = 0.0;
 						if (forecasted[i,5] != "") { 
@@ -1157,8 +1170,10 @@ public class FTW : Window {
 							if (graphtarg[0] > px && graphtarg[0] < (px + xx.abs())) {
 								if (graphtarg[1] > (i * barh) && graphtarg[1] < ((i * barh) + (barh - 1))) {
 									//bc.red = 1.0; bc.green = 0.3; bc.blue = 0.0;
-									print("graphimg.draw: \t\tchanging selectedrule to: %s\n", forecasted[i,8]);
+									//print("graphimg.draw: \t\tchanging selectedrule to: %s\n", forecasted[i,8]);
 									selectedrule = int.parse(forecasted[i,8]);
+									selectedtrns = i;
+									break;
 								}
 							}
 						}
@@ -1198,24 +1213,73 @@ public class FTW : Window {
 					ctx.rectangle(((int) px), (i * barh), ((int) xx.abs()), (barh - 1));
 					ctx.fill ();
 				}
+// draw selected transaction overlay
+				if (graphpick && graphtarg[0] >= 0 && graphzoom == false && selectedtrns != 99999) {
+					string xinf = "".concat(forecasted[selectedtrns,0], " : ", forecasted[selectedtrns,5]);
+					//var ibx = (xinf.length * 11);
+					Cairo.TextExtents extents;
+					ctx.text_extents (xinf, out extents);
+					var ibx = extents.width + 40;
+					var ixx = double.min(double.max(20,(graphtarg[0] - (ibx * 0.5))),(graphpage.get_allocated_width() - (ibx + 20)));
+					//var ixx = graphpage.get_allocated_width() * 0.5 - (ibx * 0.5);
+					var ixy = graphtarg[1] + barh + 10;
+					bc.red = 0.0; bc.green = 0.0; bc.blue = 0.0;
+					ctx.set_source_rgba(bc.red,bc.green,bc.blue,0.75);
+					ctx.rectangle(ixx, ixy, ibx, 30);
+					ctx.fill();
+					ctx.move_to(graphtarg[0], graphtarg[1]);
+					ctx.rel_line_to(5, (barh + 10));
+					ctx.rel_line_to(-10, 0);
+					ctx.close_path();
+					ctx.fill_preserve();
+					bc.red = 1.0; bc.green = 1.0; bc.blue = 1.0;
+					ctx.set_source_rgba(bc.red,bc.green,bc.blue,0.9);
+					ctx.move_to((ixx + 20), (ixy + 20));
+					ctx.show_text(xinf);
+				}
 				if (selectedrule >= 0 && selectedrule != presel) {
-					print("graphimg.draw: \tselectrule changed from: %d to: %d\n", presel, selectedrule);
+					//print("graphimg.draw: \tselectrule changed from: %d to: %d\n", presel, selectedrule);
 					var row = setuplist.get_row_at_index(selectedrule);
 					if (row != null) {
 						doupdate = false; setuplist.select_row(row); doupdate = true;
 						selectarow (dat, setuplist, flowbox, evrcombo, nthcombo, wkdcombo, fdycombo, mthcombo, fmocombo, dsc, fye, amtf, grpcombo, catcombo, grpcolb);
 					}
 				}
-				graphtarg[0] = -100;
-				graphtarg[1] = -100;
+				if (graphzoom == false) {
+					graphtarg[0] = -100;
+					graphtarg[1] = -100;
+				}
 			}
 			print("graphimg.draw: complete\n\n");
 			return true;
 		});
-		graphimg.set_events (Gdk.EventMask.BUTTON_PRESS_MASK);
+// graph interaction
+		graphimg.add_events (Gdk.EventMask.BUTTON_PRESS_MASK);
+		graphimg.add_events (Gdk.EventMask.BUTTON3_MOTION_MASK);
+		graphimg.add_events (Gdk.EventMask.BUTTON_RELEASE_MASK);
 		graphimg.button_press_event.connect ((event) => {
+			//print("graphimg.button_press_event\n");
+			graphpick = (event.button == 1);
 			graphtarg = {event.x, event.y};
+			graphzoom = (event.button == 3);
+			//graphimg.queue_draw();
+			return true;
+		});
+		graphimg.motion_notify_event.connect ((event) => {
+			if (graphzoom) {
+				graphzoomxy = {event.x, event.y};
+				graphimg.queue_draw();
+			}
+			return true;
+		});
+		graphimg.button_release_event.connect ((event) => {
+			//print("graphimg.button_release_event\n");
+			graphzoom = false;
+			//graphtarg = {event.x, event.y};
 			graphimg.queue_draw();
+			//graphtarg[0] = -100;
+			//graphtarg[1] = -100;
+			oldbarh = barh;
 			return true;
 		});
 		graphpage.add(graphimg);
