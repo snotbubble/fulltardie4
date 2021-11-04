@@ -80,10 +80,10 @@
 //     - [!] select bar to select rule
 //         - [X] find out what click event works with drawingArea or context
 //             - [X] find out how to get mouse xy pos in event
-//         - [!] fix misbehaving selectedrule getting/setting for draw event
-//     - [?] select bar to show date : amt : running-total
-//         - [ ] render comment bubble for the above
-//     - [ ] grid-lines and grid values
+//         - [X] fix misbehaving selectedrule getting/setting for draw event
+//     - [X] select bar to show date : amt : running-total
+//         - [X] render comment bubble for the above
+//     - [~] grid-lines and grid values
 //     - [ ] only draw graph if graph tab is selected
 //     - [!] add padding around min/max vals; don't draw bars to the edge of the container
 //         - [ ] fix padding when forecast is negative vals only
@@ -91,9 +91,9 @@
 //         - [ ] don't pan past extents
 //     - [ ] investigate drag-pan
 //     - [ ] remove scrollwindow container if panning works
-//     - [ ] investigate rmb zoom
+//     - [!] investigate rmb zoom
 //         - [ ] mmb + mouse x = zoom x
-//         - [ ] mmb + mouse y = zoom y
+//         - [!] mmb + mouse y = zoom y
 //         - [ ] zoom about mouse xy
 //         - [ ] don't zoom past extents
 //     - [ ] investigate pinch zoom for touch
