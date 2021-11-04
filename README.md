@@ -10,4 +10,4 @@
 todos/status in the source
 
 # screenie
-![screenie](./211020_fulltardie_screenie.png)
+![screenie](./211105_fulltardie_alltabs.png)
