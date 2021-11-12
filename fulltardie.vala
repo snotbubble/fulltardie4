@@ -38,6 +38,7 @@
 // [~] = should do it but probably wont
 // [?] = stuck
 //
+// - [ ] fix initial graph size
 // - [ ] hunt down rare segfault that may happen after going from: graph -> isolate -> forecast
 // - [!] hunt down the negative spike that's hitting the graph but not the forecast in some scenarios
 //     - [ ] this isn't happening on pinephone, investigate cairo issues on x86-64
@@ -87,16 +88,17 @@
 //     - [ ] only draw graph if graph tab is selected
 //     - [!] add padding around min/max vals; don't draw bars to the edge of the container
 //         - [ ] fix padding when forecast is negative vals only
-//     - [ ] investigate mmb pan
-//         - [ ] don't pan past extents
-//     - [ ] investigate drag-pan
+//     - [!] investigate mmb pan
+//         - [!] don't pan past extents
+//     - [ ] investigate drag drag-pan
 //     - [ ] remove scrollwindow container if panning works
 //     - [!] investigate rmb zoom
-//         - [ ] mmb + mouse x = zoom x
-//         - [!] mmb + mouse y = zoom y
-//         - [ ] zoom about mouse xy
-//         - [ ] don't zoom past extents
-//     - [ ] investigate pinch zoom for touch
+//         - [X] mmb + mouse x = zoom x
+//         - [X] mmb + mouse y = zoom y
+//         - [X] zoom about mouse xy
+//         - [!] don't zoom past extents
+//     - [ ] investigate pinch zoom for pinephone
+//         - [ ] implement touch zoom without breaking mouse zoome & vies-versa
 //     - [ ] if pan/zoom works, set double-click(tap) to fit (reset view)
 // - [ ] add simple ascii plot to any available space after running total in forecast
 //     - [ ] pad running total
@@ -775,14 +777,19 @@ string moi (int i) {
 public class FTW : Window {
 	private Notebook notebook;
 	private ListBox setuplist;
-	//private ListBox forecastlistbox;
 	private Popover spop;
 	private Popover gpop;
-	private int barh;
-	private int oldbarh;
-	private double[] graphtarg;
-	private double[] graphzoomxy;
+	private double barh;
+	private double sizx;
+	private double sizy;
+	private double posx;
+	private double posy;
+	private double[] oldgraphsize;
+	private double[] oldgraphoffset;
+	private double[] mousedown;
+	private double[] mousemove;
 	private bool graphzoom;
+	private bool graphpan;
 	private bool graphpick;
 	string[,] dat = {
 		{"1","1","7","0","1","7","0","-5.00","grocery","home","every sunday of every month starting from this september","",""},
@@ -806,9 +813,9 @@ public class FTW : Window {
 
 	public FTW() {
 		barh = 10;
-		oldbarh = 10;
-		graphtarg = {0.0,0.0};
-		graphzoomxy = {0.0,0.0};
+		oldgraphoffset = {0.0,0.0};
+		mousedown = {0.0,0.0};
+		mousemove = {0.0,0.0};
 		graphzoom = false;
 		doupdate = false;
 		this.title = "fulltardie";
@@ -1052,32 +1059,264 @@ public class FTW : Window {
 // graph page
 
 		var graphpage = new ScrolledWindow(null, null);
+		//var graphpage = new Box(VERTICAL,0);
 		//graphpage.override_background_color(NORMAL, slc);
 		var label4 = new Label(null);
 		label4.set_markup("<b><big>graph</big></b>");
 		var graphimg = new Gtk.DrawingArea();
 // graph draw -- move to events below once its allgood
+
+// new graph that fills xy size (corodsys) for pan & zoom
+
+		graphimg.draw.connect((ctx) => {
+			print("\ngraphimg.draw: started...\n");
+			if (drawit) {
+				var presel = selectedrule;
+				var csx = graphpage.get_allocated_width();
+				var csy = graphpage.get_allocated_height();
+				print("graphimg.draw: \tcsx = %f\n", csx);
+				print("graphimg.draw: \tcsy = %f\n", csy);
+
+// graph coords
+// sizx = oldsizex + (mosemovex - mousedownx)
+// posx = oldposx - (posx * 0.5)
+
+				//sizx = oldgraphsize[0];
+				//sizy = oldgraphsize[1];
+				if (graphzoom) {
+					sizx = (oldgraphsize[0] + (mousemove[0] - mousedown[0]));
+					sizy = (oldgraphsize[1] + (mousemove[1] - mousedown[1]));
+				}
+				print("graphimg.draw: \tsizx = %f\n", sizx);
+				print("graphimg.draw: \toldgraphsize[0] = %f\n", oldgraphsize[0]);
+				posx = oldgraphoffset[0];
+				posy = oldgraphoffset[1];
+				if (graphzoom) {
+					//posx = oldgraphoffset[0] + (mousedown[0] - (sizx * 0.5));
+					//posy = oldgraphoffset[1] + (mousedown[1] - (sizy * 0.5));
+					//posx = (mousemove[0] - mousedown[0]) - oldgraphoffset[0];
+					//posy = (mousemove[1] - mousedown[1]) - oldgraphoffset[1];
+					print("graphimg.draw: \tmousedown[0] (%f) - oldgraphoffset[0] (%f) = %f\n", mousedown[0], oldgraphoffset[0], (mousedown[0] - oldgraphoffset[0]));
+					posx = oldgraphoffset[0] + ( (mousedown[0] - oldgraphoffset[0]) - ( (mousedown[0] - oldgraphoffset[0]) * (sizx / oldgraphsize[0]) ) ) ;
+					print("graphimg.draw: \t%f + ( %f - ( %f * %f ) ) = %f\n", oldgraphoffset[0], (mousedown[0] - oldgraphoffset[0]), (mousedown[0] - oldgraphoffset[0]), (sizx / oldgraphsize[0]), posx);
+					posy = oldgraphoffset[1] + ( (mousedown[1] - oldgraphoffset[1]) - ( (mousedown[1] - oldgraphoffset[1]) * (sizy / oldgraphsize[1]) ) ) ;
+				}
+				if(graphpan) {
+					posx = oldgraphoffset[0] + (mousemove[0] - mousedown[0]);
+					posy = oldgraphoffset[1] + (mousemove[1] - mousedown[1]);
+					print("graphimg.draw: \tmousemove[0] (%f) - mousedown[0] (%f) = %f\n", mousemove[0], mousedown[0], (mousemove[0] - mousedown[0]));
+					print("graphimg.draw: \tgraphpan posx = %f\n", posx);
+				}
+
+// graph margins
+
+				var margx = 40.0;
+				var margy = 40.0;
+
+// bar height
+
+				var barh = (sizy - (2 * margy)) / forecasted.length[0];
+
+// get min/max vals from running total
+
+				var minrt = 999999999.0;
+				var maxrt = -999999999.0;
+				for (int i = 0; i < forecasted.length[0]; i++) {
+					if (forecasted[i,5] != "") {
+						maxrt = double.max(maxrt, double.parse(forecasted[i,5]));
+						minrt = double.min(minrt, double.parse(forecasted[i,5]));
+					}
+				}
+
+// get x scale & zero, scale both to container
+
+				var zro = minrt.abs();
+				var xmx = zro + maxrt;
+				var sfc = (sizx - (2.0 * margx)) / xmx;
+				zro = zro * sfc;
+				zro = Math.floor(zro);
+				zro = zro + margx;
+
+// paint bg
+
+				var bc = new Gdk.RGBA();
+				bc.parse(rowcolor());
+				ctx.set_source_rgba(bc.red,bc.green,bc.blue,1);
+				ctx.paint();
+
+// vars for runningtotal and month sizes in bars
+// forecasted = date, description, amount, cat, group, runningtotal, catcolor, groupcolor, owner
+// mol = # trans per month
+// mox = month number
+// eg: mol[2] = 8 tansactions, mox[2] = october
+
+				var xx = 0.0;
+				double[] mol = {};
+				int[] mox = {};
+				int mmy = -1;
+				int mrk = -1;
+				for (int i = 0; i < forecasted.length[0]; i++) {
+					if (forecasted[i,0] != "") {
+						var dseg = forecasted[i,0].split(" ");
+						if (dseg[1].strip() != "") {
+							var midx = (int.parse(dseg[1]) - 1);
+// the incoming data is sorted, so grow the month arrays when a change is detected
+							if (midx != mmy) { mmy = midx; mrk += 1; mol += 0; mox += 0; }
+							mol[mrk] += barh;
+							mox[mrk] = mmy;
+						}
+					}
+				}
+
+// draw alternating month backgrounds
+
+				var stackmo = margy;
+				stackmo = stackmo + posy;
+				//print("checking mol count: %d\n",mol.length);
+				for (int i = 0; i < mol.length; i++) {
+					//print("\tchecking month index: %d\n",mox[i]);
+					bc.parse(rowcolor());
+					if (((i + 1) % 2) == 0) {
+						bc.parse(textcolor());
+					}
+					ctx.set_source_rgba(bc.red,bc.green,bc.blue,0.1);
+					ctx.rectangle(0, stackmo, csx, mol[i]);
+					ctx.fill();
+					bc.parse(textcolor());
+					ctx.set_source_rgba(bc.red,bc.green,bc.blue,0.3);
+					//ctx.select_font_face ("Wut", Cairo.FontSlant.NORMAL, Cairo.FontWeight.BOLD);
+					ctx.select_font_face("Monospace",Cairo.FontSlant.NORMAL,Cairo.FontWeight.BOLD);
+					ctx.set_font_size (14);
+					ctx.move_to (5, (stackmo+18));
+					var motx = moi(mox[i]);
+					//print("\tchecking month draw label: %s\n",motx);
+					ctx.show_text(motx);
+					stackmo += mol[i];
+				}
+
+// check selection hit
+				//print("graphimg.draw: mousedown.x = %f\n", mousedown[0]);
+				//print("graphimg.draw: mousedown.y = %f\n", mousedown[1]);
+				//if (graphzoom) { print("graphimg.draw: graphzoom = true\n"); } else { print("graphimg.draw: graphzoom = false\n"); } 
+				var px = 0.0;
+				var py = 0.0;
+				var selectedtrns = 99999;
+				if (graphpick && mousedown[0] > 0 && graphzoom == false && graphpan == false) {
+					for (int i = 0; i < forecasted.length[0]; i++) {
+						px = 0.0;
+						py = 0.0;
+						xx = 0.0;
+						if (forecasted[i,5] != "") { 
+							xx = double.parse(forecasted[i,5]);
+							xx = xx * sfc;
+							xx = Math.floor(xx);
+							px = double.min((zro + xx),zro);
+							px = Math.floor(px);
+							px = px + posx;
+							py = ((i * barh) + margy);
+							py = py + posy;
+							//print("graphimg.draw: \tchecking hit box: %f,%f -- %f,%f\n", px,(px + xx.abs()), (i * barh), ((i * barh) + (barh - 1)));
+							if (mousedown[0] > px && mousedown[0] < (px + xx.abs())) {
+								if (mousedown[1] > py && mousedown[1] < (py + (barh - 1))) {
+									//bc.red = 1.0; bc.green = 0.3; bc.blue = 0.0;
+									//print("graphimg.draw: \t\tchanging selectedrule to: %s\n", forecasted[i,8]);
+									selectedrule = int.parse(forecasted[i,8]);
+									selectedtrns = i;
+									break;
+								}
+							}
+						}
+					}
+				}
+
+// draw bars for running total
+				for (int i = 0; i < forecasted.length[0]; i++) {
+					xx = 0.0;
+					px = 0.0;
+					py = 0.0;
+					//print("graphing %s\n", forecasted[i,1]);
+					
+					if (forecasted[i,5] != "") {
+						//print("extracting running total: %s\n", forecasted[i,5]);
+						xx = double.parse(forecasted[i,5]);
+					}
+					if (forecasted[i,7] != "") {
+						if(bc.parse(forecasted[i,7])) {
+							//print("extracting group color: %s\n", forecasted[i,7]);
+						} else {
+							bc.parse(textcolor());
+						}
+					}
+					xx = xx * sfc;
+					xx = Math.floor(xx);
+					px = double.min((zro + xx),zro);
+					px = Math.floor(px);
+					px = px + posx;
+					py = ((i * barh) + margy);
+					py = py + posy;
+					if (selectedrule == int.parse(forecasted[i,8])) { bc.red = 1.0; bc.green = 1.0; bc.blue = 1.0; }
+					ctx.set_source_rgba(bc.red,bc.green,bc.blue,0.9);
+// the actual bar
+					ctx.rectangle(px, py, xx.abs(), (barh - 1));
+					ctx.fill ();
+				}
+// draw selected transaction overlay
+				if (graphpick && mousedown[0] > 0 && graphzoom == false && graphpan == false && selectedtrns != 99999) {
+					string xinf = "".concat(forecasted[selectedtrns,0], " : ", forecasted[selectedtrns,5]);
+					//var ibx = (xinf.length * 11);
+					Cairo.TextExtents extents;
+					ctx.text_extents (xinf, out extents);
+					var ibx = extents.width + 40;
+					var ixx = double.min(double.max(20,(mousedown[0] - (ibx * 0.5))),(graphpage.get_allocated_width() - (ibx + 20)));
+					//var ixx = graphpage.get_allocated_width() * 0.5 - (ibx * 0.5);
+					var ixy = mousedown[1] + 10;
+					bc.red = 0.0; bc.green = 0.0; bc.blue = 0.0;
+					ctx.set_source_rgba(bc.red,bc.green,bc.blue,0.75);
+					ctx.rectangle(ixx, ixy, ibx, 30);
+					ctx.fill();
+					ctx.move_to(mousedown[0], mousedown[1]);
+					ctx.rel_line_to(5, 10);
+					ctx.rel_line_to(-10, 0);
+					ctx.close_path();
+					ctx.fill_preserve();
+					bc.red = 1.0; bc.green = 1.0; bc.blue = 1.0;
+					ctx.set_source_rgba(bc.red,bc.green,bc.blue,0.9);
+					ctx.move_to((ixx + 20), (ixy + 20));
+					ctx.show_text(xinf);
+				}
+				if (selectedrule >= 0 && selectedrule != presel) {
+					//print("graphimg.draw: \tselectrule changed from: %d to: %d\n", presel, selectedrule);
+					var row = setuplist.get_row_at_index(selectedrule);
+					if (row != null) {
+						doupdate = false; setuplist.select_row(row); doupdate = true;
+						selectarow (dat, setuplist, flowbox, evrcombo, nthcombo, wkdcombo, fdycombo, mthcombo, fmocombo, dsc, fye, amtf, grpcombo, catcombo, grpcolb);
+					}
+				}
+				if (graphzoom == false && graphpan == false) {
+					mousedown[0] = 0;
+					mousedown[1] = 0;
+				}
+			}
+			print("graphimg.draw: complete\n\n");
+			return true;
+		});
+		graphpage.add(graphimg);
+		oldgraphsize = {690.0,690.0};
+
+// old graph that set bar height and stacked
+
+/*
 		graphimg.draw.connect((ctx) => {
 			print("\ngraphimg.draw: started...\n");
 // use drawit to block drawing under some contitions
 			if (drawit) {
-				//print("graphimg.draw: \tincoming selectedrule = %d\n", selectedrule);
-				//print("graphimg.draw: forecasted[0,0] = %s\n", forecasted[0,0]);
-				//print("graphimg.draw: forecasted[0,1] = %s\n", forecasted[0,1]);
-				//print("graphimg.draw: forecasted[0,2] = %s\n", forecasted[0,2]);
-				//print("graphimg.draw: forecasted[0,3] = %s\n", forecasted[0,3]);
-				//print("graphimg.draw: forecasted[0,4] = %s\n", forecasted[0,4]);
-				//print("graphimg.draw: forecasted[0,5] = %s\n", forecasted[0,5]);
-				//print("graphimg.draw: forecasted[0,6] = %s\n", forecasted[0,6]);
-				//print("graphimg.draw: forecasted[0,7] = %s\n", forecasted[0,7]);
-				//print("graphimg.draw: forecasted[0,8] = %s\n", forecasted[0,8]);
 				var presel = selectedrule;
 // bar height
 				if (graphzoom) {
-					//print("graphimg.draw: \tzoom.y - targ.y = %f\n",(graphzoomxy[1] - graphtarg[0]));
-					barh = int.min(100,int.max(5,oldbarh + ((int) ((graphzoomxy[1] - graphtarg[1]) * 0.05))));
+					//print("graphimg.draw: \tzoom.y - targ.y = %f\n",(mousemove[1] - mousedown[0]));
+					barh = int.min(100,int.max(5,oldbarh + ((int) ((mousemove[1] - mousedown[1]) * 0.05))));
 				}
-				//print("graphtarg.x = %f, graphtarg.y = %f\n", graphtarg[0],graphtarg[1]);
+				//print("mousedown.x = %f, mousedown.y = %f\n", mousedown[0],mousedown[1]);
 				graphimg.height_request = (forecasted.length[0] * barh) + (barh + 40);
 				var gxx = graphpage.get_allocated_width();
 // graph margin
@@ -1152,12 +1391,12 @@ public class FTW : Window {
 					stackmo += mol[i];
 				}
 // check selection hit
-				//print("graphimg.draw: graphtarg.x = %f\n", graphtarg[0]);
-				//print("graphimg.draw: graphtarg.y = %f\n", graphtarg[1]);
+				//print("graphimg.draw: mousedown.x = %f\n", mousedown[0]);
+				//print("graphimg.draw: mousedown.y = %f\n", mousedown[1]);
 				//if (graphzoom) { print("graphimg.draw: graphzoom = true\n"); } else { print("graphimg.draw: graphzoom = false\n"); } 
 				var px = 0.0;
 				var selectedtrns = 99999;
-				if (graphpick && graphtarg[0] >= 0 && graphzoom == false) {
+				if (graphpick && mousedown[0] >= 0 && graphzoom == false) {
 					for (int i = 0; i < forecasted.length[0]; i++) {
 						xx = 0.0;
 						if (forecasted[i,5] != "") { 
@@ -1167,8 +1406,8 @@ public class FTW : Window {
 							px = double.min((zro + xx),zro);
 							px = Math.floor(px);
 							//print("graphimg.draw: \tchecking hit box: %f,%f -- %f,%f\n", px,(px + xx.abs()), (i * barh), ((i * barh) + (barh - 1)));
-							if (graphtarg[0] > px && graphtarg[0] < (px + xx.abs())) {
-								if (graphtarg[1] > (i * barh) && graphtarg[1] < ((i * barh) + (barh - 1))) {
+							if (mousedown[0] > px && mousedown[0] < (px + xx.abs())) {
+								if (mousedown[1] > (i * barh) && mousedown[1] < ((i * barh) + (barh - 1))) {
 									//bc.red = 1.0; bc.green = 0.3; bc.blue = 0.0;
 									//print("graphimg.draw: \t\tchanging selectedrule to: %s\n", forecasted[i,8]);
 									selectedrule = int.parse(forecasted[i,8]);
@@ -1214,20 +1453,20 @@ public class FTW : Window {
 					ctx.fill ();
 				}
 // draw selected transaction overlay
-				if (graphpick && graphtarg[0] >= 0 && graphzoom == false && selectedtrns != 99999) {
+				if (graphpick && mousedown[0] >= 0 && graphzoom == false && selectedtrns != 99999) {
 					string xinf = "".concat(forecasted[selectedtrns,0], " : ", forecasted[selectedtrns,5]);
 					//var ibx = (xinf.length * 11);
 					Cairo.TextExtents extents;
 					ctx.text_extents (xinf, out extents);
 					var ibx = extents.width + 40;
-					var ixx = double.min(double.max(20,(graphtarg[0] - (ibx * 0.5))),(graphpage.get_allocated_width() - (ibx + 20)));
+					var ixx = double.min(double.max(20,(mousedown[0] - (ibx * 0.5))),(graphpage.get_allocated_width() - (ibx + 20)));
 					//var ixx = graphpage.get_allocated_width() * 0.5 - (ibx * 0.5);
-					var ixy = graphtarg[1] + barh + 10;
+					var ixy = mousedown[1] + barh + 10;
 					bc.red = 0.0; bc.green = 0.0; bc.blue = 0.0;
 					ctx.set_source_rgba(bc.red,bc.green,bc.blue,0.75);
 					ctx.rectangle(ixx, ixy, ibx, 30);
 					ctx.fill();
-					ctx.move_to(graphtarg[0], graphtarg[1]);
+					ctx.move_to(mousedown[0], mousedown[1]);
 					ctx.rel_line_to(5, (barh + 10));
 					ctx.rel_line_to(-10, 0);
 					ctx.close_path();
@@ -1246,28 +1485,34 @@ public class FTW : Window {
 					}
 				}
 				if (graphzoom == false) {
-					graphtarg[0] = -100;
-					graphtarg[1] = -100;
+					mousedown[0] = -100;
+					mousedown[1] = -100;
 				}
 			}
 			print("graphimg.draw: complete\n\n");
 			return true;
 		});
+*/
+
 // graph interaction
+
 		graphimg.add_events (Gdk.EventMask.BUTTON_PRESS_MASK);
+		graphimg.add_events (Gdk.EventMask.BUTTON2_MOTION_MASK);
 		graphimg.add_events (Gdk.EventMask.BUTTON3_MOTION_MASK);
 		graphimg.add_events (Gdk.EventMask.BUTTON_RELEASE_MASK);
 		graphimg.button_press_event.connect ((event) => {
 			//print("graphimg.button_press_event\n");
+			mousedown = {event.x, event.y};
 			graphpick = (event.button == 1);
-			graphtarg = {event.x, event.y};
 			graphzoom = (event.button == 3);
+			graphpan = (event.button == 2);
+			print("graphimg.button_press_event.connect: event.button = %u\n", event.button);
 			//graphimg.queue_draw();
 			return true;
 		});
 		graphimg.motion_notify_event.connect ((event) => {
-			if (graphzoom) {
-				graphzoomxy = {event.x, event.y};
+			if (graphzoom || graphpan) {
+				mousemove = {event.x, event.y};
 				graphimg.queue_draw();
 			}
 			return true;
@@ -1275,14 +1520,16 @@ public class FTW : Window {
 		graphimg.button_release_event.connect ((event) => {
 			//print("graphimg.button_release_event\n");
 			graphzoom = false;
-			//graphtarg = {event.x, event.y};
+			graphpan = false;
+			//mousedown = {event.x, event.y};
 			graphimg.queue_draw();
-			//graphtarg[0] = -100;
-			//graphtarg[1] = -100;
-			oldbarh = barh;
+			//mousedown[0] = -100;
+			//mousedown[1] = -100;
+			//oldbarh = barh;
+			oldgraphsize = {sizx, sizy};
+			oldgraphoffset = {posx, posy};
 			return true;
 		});
-		graphpage.add(graphimg);
 
 // add pages to notebook
 
@@ -1292,8 +1539,8 @@ public class FTW : Window {
 
 // select row
 
-		graphtarg[0] = -100;
-		graphtarg[1] = -100;
+		mousedown[0] = 0;
+		mousedown[1] = 0;
 		var row = setuplist.get_row_at_index(0);
 		selectedrule = 0;
 		selectarow (dat, setuplist, flowbox, evrcombo, nthcombo, wkdcombo, fdycombo, mthcombo, fmocombo, dsc, fye, amtf, grpcombo, catcombo, grpcolb);
