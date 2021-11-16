@@ -40,8 +40,11 @@
 //
 // fix...
 // - [ ] fix initial graph size
+//     - [ ] fit to current month
 // - [ ] fix padding when forecast is negative vals only
-// - [?] fix busted mousedown after selecting a new bar then wheel-zooming
+//     - [ ] re-fit on isolate toggle
+// - [ ] fix busted info label when isolating while its visible
+// - [X] fix busted mousedown after selecting a new bar then wheel-zooming
 // - [X] fix misbehaving selectedrule getting/setting for draw event
 // - [?] hunt down cause of graph double render after selecting a new bar
 // - [?] hunt down rare segfault that may happen after going from: graph -> isolate -> forecast
@@ -82,29 +85,28 @@
 //     - [X] add month blocks under bars in graph
 //         - [X] add month block titles
 //     - [ ] expand bar graph to fit container height when its smaller
-//         - [ ] change graph scale logic to allow scaling and padding
+//         - [!] change graph scale logic to allow scaling and padding
+//             - [ ] re-enable padding
 //     - [X] select bar to select rule
 //         - [X] find out what click event works with drawingArea or context
 //             - [X] find out how to get mouse xy pos in event
-//     - [X] select bar to show date : amt : running-total
+//     - [!] select bar to show date : amt : running-total
 //         - [X] render comment bubble for the above
-//     - [~] grid-lines and grid values
+//         - [ ] reformat date to d b y (eg: 01 jan 2021)
 //     - [ ] only draw graph if graph tab is selected
-//     - [!] add padding around min/max vals; don't draw bars to the edge of the container
-//     - [!] investigate mmb pan
-//         - [!] don't pan past extents
+//     - [X] mmb pan
+//         - [X] don't pan past extents
 //     - [ ] investigate touch pan
-//     - [ ] remove scrollwindow container if panning works
-//     - [!] investigate rmb zoom
+//     - [X] remove scrollwindow container if panning works
+//     - [X] rmb zoom
 //         - [X] mmb + mouse x = zoom x
 //         - [X] mmb + mouse y = zoom y
 //         - [X] zoom about mouse xy
-//         - [!] don't zoom past extents
 //     - [!] investigate wheel zoom about cursor
-//         - [ ] clean up the event logic
+//         - [!] clean up the event logic
 //     - [ ] investigate touch pinch zoom
 //         - [ ] implement touch zoom without breaking mouse zoome & vies-versa
-//     - [ ] if pan/zoom works, set double-click(tap) to fit (reset view)
+//     - [!] if pan/zoom works, set double-click(tap) to fit (reset view)
 // - [ ] add simple ascii plot to any available space after running total in forecast
 //     - [ ] pad running total
 //     - [ ] get remaining characters
@@ -1298,10 +1300,10 @@ public class FTW : Window {
 					ctx.fill ();
 				}
 
-				bc.red = 1.0; bc.green = 0.0; bc.blue = 0.0;
-				ctx.set_source_rgba(bc.red,bc.green,bc.blue,0.75);
-				ctx.arc(targx, targy, 10.0, 0, 2.0*3.14);
-				ctx.fill();
+				//bc.red = 1.0; bc.green = 0.0; bc.blue = 0.0;
+				//ctx.set_source_rgba(bc.red,bc.green,bc.blue,0.75);
+				//ctx.arc(targx, targy, 10.0, 0, 2.0*3.14);
+				//ctx.fill();
 
 // draw selected transaction overlay
 
@@ -1316,7 +1318,7 @@ public class FTW : Window {
 					var ixx = double.min(double.max(20,(targx - (ibx * 0.5))),(graphimg.get_allocated_width() - (ibx + 20)));
 					//var ixx = graphpage.get_allocated_width() * 0.5 - (ibx * 0.5);
 					//var ixy = targy + 10;
-					var ixy = double.min(double.max(20,(targy + 10)),(graphimg.get_allocated_height() - 50));
+					var ixy = double.min(double.max(20,(targy + 20)),(graphimg.get_allocated_height() - 50));
 					var ltx = double.min(double.max((ixx + 10), targx),(ixx + ibx - 10));
 					var lty = double.min(double.max((ixy + 10), targy),(ixy + 20));
 					bc.red = 0.0; bc.green = 0.0; bc.blue = 0.0;
@@ -1325,25 +1327,29 @@ public class FTW : Window {
 					ctx.fill();
 
 // draw pointer
-// cairo doesn't seem to do variable width points... unless there's a hacky way to scale it
-// investigating trig, if it isn't too costly
+// cairo doesn't seem to do variable width points, unless there's a hacky way to scale it
+// doing it with crossproduct for now...
 
 					ctx.set_line_cap (Cairo.LineCap.ROUND);
-					
-					//ctx.set_line_width(1);
 					ctx.move_to(targx, targy);
-					ctx.set_line_width(1);
-					
-					//ctx.set_line_width(10);
-					ctx.line_to(ltx,lty);
-					ctx.set_line_width(4);
-					ctx.stroke();
-
-					//ctx.line_to((ixx + (ibx * 0.5) + 5), ixy);
-					//ctx.rel_line_to(-10, 0);
-					//ctx.close_path();
-					//ctx.fill_preserve();
-					//ctx.fill();
+					double[] ab = { (targx - ltx), (targy - lty), 0.0 };
+					//                 (a.1 * b.2) -   (a.2 * b.1),     (a.2 * b.0) -   (a.0 * b.2),     (a.0 * b.1) -   (a.1 * b.0)
+					double[] cx = { ((ab[1] * 1.0) - (ab[2] * 0.0)), ((ab[2] * 0.0) - (ab[0] * 1.0)), ((ab[0] * 0.0) - (ab[1] * 0.0)) };
+					//print("graphimg.draw: \tcx[0] = %f, cx[1] = %f\n", cx[0], cx[1]);
+					double cxl = Math.sqrt( (cx[0] * cx[0]) + (cx[1] * cx[1]) + (cx[2] * cx[2]) );
+					if (cxl > 0) {
+						//print("graphimg.draw: \tcx.len = %f\n", cxl);
+						cx[0] = ((cx[0] / cxl) * 5.0);
+						cx[1] = ((cx[1] / cxl) * 5.0);
+						//print("graphimg.draw: \tnormalized cx[0] = %f, normalized cx[1] = %f\n", cx[0], cx[1]);
+						ctx.line_to((ltx + cx[0]),(lty + cx[1]));
+						ctx.line_to((ltx - cx[0]),(lty - cx[1]));
+						//ctx.line_to(targx, targy);
+						ctx.close_path();
+						//ctx.set_line_width(2);
+						//ctx.stroke();
+						ctx.fill();
+					}
 					ctx.move_to((ixx + 20), (ixy + 20));
 					bc.red = 1.0; bc.green = 1.0; bc.blue = 1.0;
 					ctx.set_source_rgba(bc.red,bc.green,bc.blue,0.9);
@@ -1357,8 +1363,8 @@ public class FTW : Window {
 					//print("graphimg.draw: \tselectrule changed from: %d to: %d\n", presel, selectedrule);
 					var row = setuplist.get_row_at_index(selectedrule);
 					if (row != null) {
-						//doupdate = false; setuplist.select_row(row); doupdate = true;
-						//selectarow (dat, setuplist, flowbox, evrcombo, nthcombo, wkdcombo, fdycombo, mthcombo, fmocombo, dsc, fye, amtf, grpcombo, catcombo, grpcolb);
+						doupdate = false; setuplist.select_row(row); doupdate = true;
+						selectarow (dat, setuplist, flowbox, evrcombo, nthcombo, wkdcombo, fdycombo, mthcombo, fmocombo, dsc, fye, amtf, grpcombo, catcombo, grpcolb);
 					}
 				}
 
