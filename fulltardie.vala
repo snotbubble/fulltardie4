@@ -6,7 +6,7 @@
 // using Vala for compatibility with mainline Linux on 64-bit Arm devices (futureproofing)
 // added compactable ui for phones, expanded forecasting function capabilities
 // tested OK on Linux 4.19.0-17-amd64, Xfce 4.14
-// tested OK on Linux 5.10-sunxi64, Gnome 40.5
+// tested OK on Linux 5.10-sunxi64, Gnome 40.5 (though graph interaction is busted atm)
 //
 // *** minimal safety atm; you can hit a segfault without too much effort ***
 // not usable on pinephone/phosh at default 200% scaling atm; need re-think how to edit params and see results at the same time,
@@ -23,7 +23,7 @@
 // otherwise, mostly written via brute force trial & error thanks to Vala's amazing lack of straightforward examples
 // also on that note: OOP is a fucking mental illness. I miss being able to do stuff like button.color = red
 //
-// example usage: 
+// example usage (pre-release):
 // mkdir ~/Desktop/fulltardie && cd ~/Desktop/fulltardie
 // wget -O fulltardie.vala https://raw.githubusercontent.com/snotbubble/fulltardie4/main/fulltardie.vala
 // valac fulltardie.vala --pkg gtk+-3.0 -X -lm
@@ -38,10 +38,16 @@
 // [~] = should do it but probably wont
 // [?] = stuck
 //
+// fix...
 // - [ ] fix initial graph size
-// - [ ] hunt down rare segfault that may happen after going from: graph -> isolate -> forecast
-// - [!] hunt down the negative spike that's hitting the graph but not the forecast in some scenarios
-//     - [ ] this isn't happening on pinephone, investigate cairo issues on x86-64
+// - [ ] fix padding when forecast is negative vals only
+// - [?] fix busted mousedown after selecting a new bar then wheel-zooming
+// - [X] fix misbehaving selectedrule getting/setting for draw event
+// - [?] hunt down cause of graph double render after selecting a new bar
+// - [?] hunt down rare segfault that may happen after going from: graph -> isolate -> forecast
+// - [?] hunt down the negative spike that's hitting the graph but not the forecast in some scenarios
+//
+// add...
 // - [ ] set rule group color when group is selected
 // - [ ] set rule category color when group is selected
 // - [ ] re-draw forecast when changing group color if it doesn't lag -- test on pinephone
@@ -59,7 +65,6 @@
 //         - [ ] [every] [nth] [weekday] [*from the* fdy *occurence*] [of nth month] []
 //         - [ ] [every] [nth] [weekday] [*from the* fdy *occurence*] [] [*from* nth month]
 // - [ ] add changed asterisk to header bar title
-// - [ ] investigate double-click issue in Ubuntu: says it cant find application to run it, instead of just running it
 // - [?] compact-left bottom row of params (hbgrp) while keeping the reflow behavior - might have to do it manually
 // - [~] find an elegant way to switch between pre-filtering and post-filtering when isolating - need a tri-state toggle
 // - [~] find an elegant way to handle every 90th and 91st day in alternating cycles (actual from a sydney utility company).
@@ -78,26 +83,26 @@
 //         - [X] add month block titles
 //     - [ ] expand bar graph to fit container height when its smaller
 //         - [ ] change graph scale logic to allow scaling and padding
-//     - [!] select bar to select rule
+//     - [X] select bar to select rule
 //         - [X] find out what click event works with drawingArea or context
 //             - [X] find out how to get mouse xy pos in event
-//         - [X] fix misbehaving selectedrule getting/setting for draw event
 //     - [X] select bar to show date : amt : running-total
 //         - [X] render comment bubble for the above
 //     - [~] grid-lines and grid values
 //     - [ ] only draw graph if graph tab is selected
 //     - [!] add padding around min/max vals; don't draw bars to the edge of the container
-//         - [ ] fix padding when forecast is negative vals only
 //     - [!] investigate mmb pan
 //         - [!] don't pan past extents
-//     - [ ] investigate drag drag-pan
+//     - [ ] investigate touch pan
 //     - [ ] remove scrollwindow container if panning works
 //     - [!] investigate rmb zoom
 //         - [X] mmb + mouse x = zoom x
 //         - [X] mmb + mouse y = zoom y
 //         - [X] zoom about mouse xy
 //         - [!] don't zoom past extents
-//     - [ ] investigate pinch zoom for pinephone
+//     - [!] investigate wheel zoom about cursor
+//         - [ ] clean up the event logic
+//     - [ ] investigate touch pinch zoom
 //         - [ ] implement touch zoom without breaking mouse zoome & vies-versa
 //     - [ ] if pan/zoom works, set double-click(tap) to fit (reset view)
 // - [ ] add simple ascii plot to any available space after running total in forecast
@@ -779,17 +784,23 @@ public class FTW : Window {
 	private ListBox setuplist;
 	private Popover spop;
 	private Popover gpop;
+	private Gdk.ScrollDirection scrolldir;
+	private int selectedtrns;
 	private double barh;
 	private double sizx;
 	private double sizy;
 	private double posx;
 	private double posy;
+	private double targx;
+	private double targy;
 	private double[] oldgraphsize;
 	private double[] oldgraphoffset;
 	private double[] mousedown;
 	private double[] mousemove;
+	private double[] oldmousedown;
 	private bool graphzoom;
 	private bool graphpan;
+	private bool graphscroll;
 	private bool graphpick;
 	string[,] dat = {
 		{"1","1","7","0","1","7","0","-5.00","grocery","home","every sunday of every month starting from this september","",""},
@@ -814,10 +825,13 @@ public class FTW : Window {
 	public FTW() {
 		barh = 10;
 		oldgraphoffset = {0.0,0.0};
+		oldgraphsize = {690.0,690.0};
 		mousedown = {0.0,0.0};
 		mousemove = {0.0,0.0};
+		oldmousedown = {0.0,0.0};
 		graphzoom = false;
 		doupdate = false;
+		selectedtrns = 99999;
 		this.title = "fulltardie";
 		this.set_default_size(720, 500);
 		this.destroy.connect(Gtk.main_quit);
@@ -1058,7 +1072,7 @@ public class FTW : Window {
 
 // graph page
 
-		var graphpage = new ScrolledWindow(null, null);
+		//var graphpage = new ScrolledWindow(null, null);
 		//var graphpage = new Box(VERTICAL,0);
 		//graphpage.override_background_color(NORMAL, slc);
 		var label4 = new Label(null);
@@ -1072,8 +1086,10 @@ public class FTW : Window {
 			print("\ngraphimg.draw: started...\n");
 			if (drawit) {
 				var presel = selectedrule;
-				var csx = graphpage.get_allocated_width();
-				var csy = graphpage.get_allocated_height();
+				//var csx = graphpage.get_allocated_width();
+				//var csy = graphpage.get_allocated_height();
+				var csx = graphimg.get_allocated_width();
+				var csy = graphimg.get_allocated_height();
 				print("graphimg.draw: \tcsx = %f\n", csx);
 				print("graphimg.draw: \tcsy = %f\n", csy);
 
@@ -1081,32 +1097,49 @@ public class FTW : Window {
 // sizx = oldsizex + (mosemovex - mousedownx)
 // posx = oldposx - (posx * 0.5)
 
-				//sizx = oldgraphsize[0];
-				//sizy = oldgraphsize[1];
-				if (graphzoom) {
+				sizx = oldgraphsize[0];
+				sizy = oldgraphsize[1];
+				if (graphzoom || graphscroll) {
 					sizx = (oldgraphsize[0] + (mousemove[0] - mousedown[0]));
 					sizy = (oldgraphsize[1] + (mousemove[1] - mousedown[1]));
 				}
 				print("graphimg.draw: \tsizx = %f\n", sizx);
+				print("graphimg.draw: \tmousedown[0] = %f\n", mousedown[0]);
+				print("graphimg.draw: \tmousemove[0] = %f\n", mousemove[0]);
 				print("graphimg.draw: \toldgraphsize[0] = %f\n", oldgraphsize[0]);
+				print("graphimg.draw: \toldgraphoffset[0] = %f\n", oldgraphoffset[0]);
+				print("graphimg.draw: \toldmousedown[0] = %f\n", oldmousedown[0]);
+				print("graphimg.draw: \ttargx = %f\n", targx);
 				posx = oldgraphoffset[0];
 				posy = oldgraphoffset[1];
-				if (graphzoom) {
-					//posx = oldgraphoffset[0] + (mousedown[0] - (sizx * 0.5));
-					//posy = oldgraphoffset[1] + (mousedown[1] - (sizy * 0.5));
-					//posx = (mousemove[0] - mousedown[0]) - oldgraphoffset[0];
-					//posy = (mousemove[1] - mousedown[1]) - oldgraphoffset[1];
-					print("graphimg.draw: \tmousedown[0] (%f) - oldgraphoffset[0] (%f) = %f\n", mousedown[0], oldgraphoffset[0], (mousedown[0] - oldgraphoffset[0]));
+				if (graphzoom || graphscroll) {
 					posx = oldgraphoffset[0] + ( (mousedown[0] - oldgraphoffset[0]) - ( (mousedown[0] - oldgraphoffset[0]) * (sizx / oldgraphsize[0]) ) ) ;
-					print("graphimg.draw: \t%f + ( %f - ( %f * %f ) ) = %f\n", oldgraphoffset[0], (mousedown[0] - oldgraphoffset[0]), (mousedown[0] - oldgraphoffset[0]), (sizx / oldgraphsize[0]), posx);
 					posy = oldgraphoffset[1] + ( (mousedown[1] - oldgraphoffset[1]) - ( (mousedown[1] - oldgraphoffset[1]) * (sizy / oldgraphsize[1]) ) ) ;
+					targx = oldmousedown[0] + ( (mousedown[0] - oldmousedown[0]) - ( (mousedown[0] - oldmousedown[0]) * (sizx / oldgraphsize[0]) ) ) ;
+					targy = oldmousedown[1] + ( (mousedown[1] - oldmousedown[1]) - ( (mousedown[1] - oldmousedown[1]) * (sizy / oldgraphsize[1]) ) ) ;
+					print("graphimg.draw: \t\tgraphzoom/graphscroll posx = %f\n", posx);
+					//print("graphimg.draw: \ttargx after zoom = %f\n", targx);
 				}
 				if(graphpan) {
 					posx = oldgraphoffset[0] + (mousemove[0] - mousedown[0]);
 					posy = oldgraphoffset[1] + (mousemove[1] - mousedown[1]);
-					print("graphimg.draw: \tmousemove[0] (%f) - mousedown[0] (%f) = %f\n", mousemove[0], mousedown[0], (mousemove[0] - mousedown[0]));
-					print("graphimg.draw: \tgraphpan posx = %f\n", posx);
+					targx = oldmousedown[0] + (mousemove[0] - mousedown[0]);
+					targy = oldmousedown[1] + (mousemove[1] - mousedown[1]);
+					//print("graphimg.draw: \tmousemove[0] (%f) - mousedown[0] (%f) = %f\n", mousemove[0], mousedown[0], (mousemove[0] - mousedown[0]));
+					print("graphimg.draw: \t\tgraphpan posx = %f\n", posx);
+					//print("graphimg.draw: \ttargx after pan = %f\n", targx);
 				}
+				print("graphimg.draw: \ttargx after pan & zoom = %f\n", targx);
+				if (graphpick) {
+					targx = mousedown[0];
+					targy = mousedown[1];
+				}
+				//posx = Math.floor(posx);
+				//posy = Math.floor(posy);
+				//targx = Math.floor(targx);
+				//targy = Math.floor(targy);
+				
+				print("graphimg.draw: \ttargx after pan & zoom = %f\n", targx);
 
 // graph margins
 
@@ -1115,7 +1148,8 @@ public class FTW : Window {
 
 // bar height
 
-				var barh = (sizy - (2 * margy)) / forecasted.length[0];
+				//var barh = (sizy - (2 * margy)) / forecasted.length[0];
+				var barh = sizy / forecasted.length[0];
 
 // get min/max vals from running total
 
@@ -1132,10 +1166,11 @@ public class FTW : Window {
 
 				var zro = minrt.abs();
 				var xmx = zro + maxrt;
-				var sfc = (sizx - (2.0 * margx)) / xmx;
+				//var sfc = (sizx - (2.0 * margx)) / xmx;
+				var sfc = sizx / xmx;
 				zro = zro * sfc;
 				zro = Math.floor(zro);
-				zro = zro + margx;
+				//zro = zro + margx;
 
 // paint bg
 
@@ -1170,7 +1205,7 @@ public class FTW : Window {
 
 // draw alternating month backgrounds
 
-				var stackmo = margy;
+				var stackmo = 0.0;
 				stackmo = stackmo + posy;
 				//print("checking mol count: %d\n",mol.length);
 				for (int i = 0; i < mol.length; i++) {
@@ -1195,13 +1230,14 @@ public class FTW : Window {
 				}
 
 // check selection hit
+
 				//print("graphimg.draw: mousedown.x = %f\n", mousedown[0]);
 				//print("graphimg.draw: mousedown.y = %f\n", mousedown[1]);
 				//if (graphzoom) { print("graphimg.draw: graphzoom = true\n"); } else { print("graphimg.draw: graphzoom = false\n"); } 
 				var px = 0.0;
 				var py = 0.0;
-				var selectedtrns = 99999;
-				if (graphpick && mousedown[0] > 0 && graphzoom == false && graphpan == false) {
+				if (graphpick && mousedown[0] > 0 && graphzoom == false && graphpan == false && graphscroll == false) {
+					selectedtrns = 99999;
 					for (int i = 0; i < forecasted.length[0]; i++) {
 						px = 0.0;
 						py = 0.0;
@@ -1213,7 +1249,7 @@ public class FTW : Window {
 							px = double.min((zro + xx),zro);
 							px = Math.floor(px);
 							px = px + posx;
-							py = ((i * barh) + margy);
+							py = i * barh;
 							py = py + posy;
 							//print("graphimg.draw: \tchecking hit box: %f,%f -- %f,%f\n", px,(px + xx.abs()), (i * barh), ((i * barh) + (barh - 1)));
 							if (mousedown[0] > px && mousedown[0] < (px + xx.abs())) {
@@ -1222,6 +1258,7 @@ public class FTW : Window {
 									//print("graphimg.draw: \t\tchanging selectedrule to: %s\n", forecasted[i,8]);
 									selectedrule = int.parse(forecasted[i,8]);
 									selectedtrns = i;
+									targx = mousedown[0]; targy = mousedown[1];
 									break;
 								}
 							}
@@ -1230,6 +1267,7 @@ public class FTW : Window {
 				}
 
 // draw bars for running total
+
 				for (int i = 0; i < forecasted.length[0]; i++) {
 					xx = 0.0;
 					px = 0.0;
@@ -1252,247 +1290,100 @@ public class FTW : Window {
 					px = double.min((zro + xx),zro);
 					px = Math.floor(px);
 					px = px + posx;
-					py = ((i * barh) + margy);
+					py = i * barh;
 					py = py + posy;
 					if (selectedrule == int.parse(forecasted[i,8])) { bc.red = 1.0; bc.green = 1.0; bc.blue = 1.0; }
 					ctx.set_source_rgba(bc.red,bc.green,bc.blue,0.9);
-// the actual bar
 					ctx.rectangle(px, py, xx.abs(), (barh - 1));
 					ctx.fill ();
 				}
+
+				bc.red = 1.0; bc.green = 0.0; bc.blue = 0.0;
+				ctx.set_source_rgba(bc.red,bc.green,bc.blue,0.75);
+				ctx.arc(targx, targy, 10.0, 0, 2.0*3.14);
+				ctx.fill();
+
 // draw selected transaction overlay
-				if (graphpick && mousedown[0] > 0 && graphzoom == false && graphpan == false && selectedtrns != 99999) {
+
+				//if (graphpick && mousedown[0] > 0 && graphzoom == false && graphpan == false && graphscroll == false && selectedtrns != 99999) {
+				if (selectedtrns != 99999) {
 					string xinf = "".concat(forecasted[selectedtrns,0], " : ", forecasted[selectedtrns,5]);
 					//var ibx = (xinf.length * 11);
 					Cairo.TextExtents extents;
 					ctx.text_extents (xinf, out extents);
 					var ibx = extents.width + 40;
-					var ixx = double.min(double.max(20,(mousedown[0] - (ibx * 0.5))),(graphpage.get_allocated_width() - (ibx + 20)));
+					//var ixx = double.min(double.max(20,(mousedown[0] - (ibx * 0.5))),(graphpage.get_allocated_width() - (ibx + 20)));
+					var ixx = double.min(double.max(20,(targx - (ibx * 0.5))),(graphimg.get_allocated_width() - (ibx + 20)));
 					//var ixx = graphpage.get_allocated_width() * 0.5 - (ibx * 0.5);
-					var ixy = mousedown[1] + 10;
+					//var ixy = targy + 10;
+					var ixy = double.min(double.max(20,(targy + 10)),(graphimg.get_allocated_height() - 50));
+					var ltx = double.min(double.max((ixx + 10), targx),(ixx + ibx - 10));
+					var lty = double.min(double.max((ixy + 10), targy),(ixy + 20));
 					bc.red = 0.0; bc.green = 0.0; bc.blue = 0.0;
-					ctx.set_source_rgba(bc.red,bc.green,bc.blue,0.75);
+					ctx.set_source_rgba(bc.red,bc.green,bc.blue,1.0);
 					ctx.rectangle(ixx, ixy, ibx, 30);
 					ctx.fill();
-					ctx.move_to(mousedown[0], mousedown[1]);
-					ctx.rel_line_to(5, 10);
-					ctx.rel_line_to(-10, 0);
-					ctx.close_path();
-					ctx.fill_preserve();
+
+// draw pointer
+// cairo doesn't seem to do variable width points... unless there's a hacky way to scale it
+// investigating trig, if it isn't too costly
+
+					ctx.set_line_cap (Cairo.LineCap.ROUND);
+					
+					//ctx.set_line_width(1);
+					ctx.move_to(targx, targy);
+					ctx.set_line_width(1);
+					
+					//ctx.set_line_width(10);
+					ctx.line_to(ltx,lty);
+					ctx.set_line_width(4);
+					ctx.stroke();
+
+					//ctx.line_to((ixx + (ibx * 0.5) + 5), ixy);
+					//ctx.rel_line_to(-10, 0);
+					//ctx.close_path();
+					//ctx.fill_preserve();
+					//ctx.fill();
+					ctx.move_to((ixx + 20), (ixy + 20));
 					bc.red = 1.0; bc.green = 1.0; bc.blue = 1.0;
 					ctx.set_source_rgba(bc.red,bc.green,bc.blue,0.9);
-					ctx.move_to((ixx + 20), (ixy + 20));
 					ctx.show_text(xinf);
 				}
+
+// new rule selection detected, update the rest of the ui
+// this is triggering a double draw for some reason...
+
 				if (selectedrule >= 0 && selectedrule != presel) {
 					//print("graphimg.draw: \tselectrule changed from: %d to: %d\n", presel, selectedrule);
 					var row = setuplist.get_row_at_index(selectedrule);
 					if (row != null) {
-						doupdate = false; setuplist.select_row(row); doupdate = true;
-						selectarow (dat, setuplist, flowbox, evrcombo, nthcombo, wkdcombo, fdycombo, mthcombo, fmocombo, dsc, fye, amtf, grpcombo, catcombo, grpcolb);
+						//doupdate = false; setuplist.select_row(row); doupdate = true;
+						//selectarow (dat, setuplist, flowbox, evrcombo, nthcombo, wkdcombo, fdycombo, mthcombo, fmocombo, dsc, fye, amtf, grpcombo, catcombo, grpcolb);
 					}
 				}
-				if (graphzoom == false && graphpan == false) {
+
+// not used anymore
+
+				if (graphzoom == false && graphpan == false && graphscroll == false) {
 					mousedown[0] = 0;
 					mousedown[1] = 0;
+					graphpick = false;
+				}
+
+// there's no wheel_end event so these go here... its a pulse event so works ok
+
+				if (graphscroll) { 
+					graphscroll = false;
+					oldgraphsize = {sizx, sizy};
+					oldgraphoffset = {posx, posy};
+					oldmousedown = {targx, targy};
 				}
 			}
 			print("graphimg.draw: complete\n\n");
 			return true;
 		});
-		graphpage.add(graphimg);
-		oldgraphsize = {690.0,690.0};
-
-// old graph that set bar height and stacked
-
-/*
-		graphimg.draw.connect((ctx) => {
-			print("\ngraphimg.draw: started...\n");
-// use drawit to block drawing under some contitions
-			if (drawit) {
-				var presel = selectedrule;
-// bar height
-				if (graphzoom) {
-					//print("graphimg.draw: \tzoom.y - targ.y = %f\n",(mousemove[1] - mousedown[0]));
-					barh = int.min(100,int.max(5,oldbarh + ((int) ((mousemove[1] - mousedown[1]) * 0.05))));
-				}
-				//print("mousedown.x = %f, mousedown.y = %f\n", mousedown[0],mousedown[1]);
-				graphimg.height_request = (forecasted.length[0] * barh) + (barh + 40);
-				var gxx = graphpage.get_allocated_width();
-// graph margin
-				gxx = gxx - 80;
-// get min/max vals from running total
-				var minrt = 999999999.0;
-				var maxrt = -999999999.0;
-				for (int i = 0; i < forecasted.length[0]; i++) {
-					if (forecasted[i,5] != "") {
-						maxrt = double.max(maxrt, double.parse(forecasted[i,5]));
-						minrt = double.min(minrt, double.parse(forecasted[i,5]));
-					}
-				}
-// get x scale & zero, scale both to container
-				var zro = minrt.abs();
-				var xmx = zro + maxrt;
-				var sfc = ((double) gxx) / xmx;
-				zro = zro * sfc;
-				zro = Math.floor(zro);
-				zro = zro + 40.0;
-// paint bg
-				var bc = new Gdk.RGBA();
-				bc.parse(rowcolor());
-				ctx.set_source_rgba(bc.red,bc.green,bc.blue,1);
-				ctx.paint();
-// vars for runningtotal and month sizes in bars
-				var xx = 0.0;
-				int[] mol = {};
-				int[] mox = {};
-				int mmy = -1;
-				int mrk = -1;
-// extract month from forecasted,
-// this has to be done via strings thanks to vala's severely limited arrays
-// but seems to be quick enough for now
-// forecasted = date, description, amount, cat, group, runningtotal, catcolor, groupcolor, owner
-// mol = # trans per month
-// mox = month number
-// eg: mol[2] = 8 tansactions, mox[2] = october
-				for (int i = 0; i < forecasted.length[0]; i++) {
-					if (forecasted[i,0] != "") {
-						var dseg = forecasted[i,0].split(" ");
-						if (dseg[1].strip() != "") {
-							var midx = (int.parse(dseg[1]) - 1);
-// the incoming data is sorted, so grow the month arrays when a change is detected
-							if (midx != mmy) { mmy = midx; mrk += 1; mol += 0; mox += 0; }
-							mol[mrk] += barh;
-							mox[mrk] = mmy;
-						}
-					}
-				}
-// draw alternating month backgrounds
-				var stackmo = 0;
-				//print("checking mol count: %d\n",mol.length);
-				for (int i = 0; i < mol.length; i++) {
-					//print("\tchecking month index: %d\n",mox[i]);
-					bc.parse(rowcolor());
-					if (((i + 1) % 2) == 0) {
-						bc.parse(textcolor());
-					}
-					ctx.set_source_rgba(bc.red,bc.green,bc.blue,0.1);
-					ctx.rectangle(0, stackmo, (gxx + 80), mol[i]);
-					ctx.fill();
-					bc.parse(textcolor());
-					ctx.set_source_rgba(bc.red,bc.green,bc.blue,0.3);
-					//ctx.select_font_face ("Wut", Cairo.FontSlant.NORMAL, Cairo.FontWeight.BOLD);
-					ctx.select_font_face("Monospace",Cairo.FontSlant.NORMAL,Cairo.FontWeight.BOLD);
-					ctx.set_font_size (14);
-					ctx.move_to (5, (stackmo+18));
-					var motx = moi(mox[i]);
-					//print("\tchecking month draw label: %s\n",motx);
-					ctx.show_text(motx);
-					stackmo += mol[i];
-				}
-// check selection hit
-				//print("graphimg.draw: mousedown.x = %f\n", mousedown[0]);
-				//print("graphimg.draw: mousedown.y = %f\n", mousedown[1]);
-				//if (graphzoom) { print("graphimg.draw: graphzoom = true\n"); } else { print("graphimg.draw: graphzoom = false\n"); } 
-				var px = 0.0;
-				var selectedtrns = 99999;
-				if (graphpick && mousedown[0] >= 0 && graphzoom == false) {
-					for (int i = 0; i < forecasted.length[0]; i++) {
-						xx = 0.0;
-						if (forecasted[i,5] != "") { 
-							xx = double.parse(forecasted[i,5]);
-							xx = xx * sfc;
-							xx = Math.floor(xx);
-							px = double.min((zro + xx),zro);
-							px = Math.floor(px);
-							//print("graphimg.draw: \tchecking hit box: %f,%f -- %f,%f\n", px,(px + xx.abs()), (i * barh), ((i * barh) + (barh - 1)));
-							if (mousedown[0] > px && mousedown[0] < (px + xx.abs())) {
-								if (mousedown[1] > (i * barh) && mousedown[1] < ((i * barh) + (barh - 1))) {
-									//bc.red = 1.0; bc.green = 0.3; bc.blue = 0.0;
-									//print("graphimg.draw: \t\tchanging selectedrule to: %s\n", forecasted[i,8]);
-									selectedrule = int.parse(forecasted[i,8]);
-									selectedtrns = i;
-									break;
-								}
-							}
-						}
-					}
-				}
-// draw bars for running total
-				for (int i = 0; i < forecasted.length[0]; i++) {
-					xx = 0.0;
-					px = 0.0;
-					//print("graphing %s\n", forecasted[i,1]);
-					
-					if (forecasted[i,5] != "") {
-						//print("extracting running total: %s\n", forecasted[i,5]);
-						xx = double.parse(forecasted[i,5]);
-					}
-					if (forecasted[i,7] != "") {
-						if(bc.parse(forecasted[i,7])) {
-							//print("extracting group color: %s\n", forecasted[i,7]);
-						} else {
-							bc.parse(textcolor());
-						}
-					}
-					xx = xx * sfc;
-					xx = Math.floor(xx);
-					px = double.min((zro + xx),zro);
-					px = Math.floor(px);
-					if (selectedrule == int.parse(forecasted[i,8])) { bc.red = 1.0; bc.green = 1.0; bc.blue = 1.0; }
-					ctx.set_source_rgba(bc.red,bc.green,bc.blue,0.9);
-// sanity checks
-					//print("zero = %f\n", zro);
-					//print("xx = %f\n", xx);
-					//print("scale factor = %f\n", sfc);
-					//print("pos.x = %f\n", px);
-					//print("(zero + xx) = %f\n\n", (zro + xx));
-					//xx = ((zro + xx) * sfc);
-// the actual bar
-					ctx.rectangle(((int) px), (i * barh), ((int) xx.abs()), (barh - 1));
-					ctx.fill ();
-				}
-// draw selected transaction overlay
-				if (graphpick && mousedown[0] >= 0 && graphzoom == false && selectedtrns != 99999) {
-					string xinf = "".concat(forecasted[selectedtrns,0], " : ", forecasted[selectedtrns,5]);
-					//var ibx = (xinf.length * 11);
-					Cairo.TextExtents extents;
-					ctx.text_extents (xinf, out extents);
-					var ibx = extents.width + 40;
-					var ixx = double.min(double.max(20,(mousedown[0] - (ibx * 0.5))),(graphpage.get_allocated_width() - (ibx + 20)));
-					//var ixx = graphpage.get_allocated_width() * 0.5 - (ibx * 0.5);
-					var ixy = mousedown[1] + barh + 10;
-					bc.red = 0.0; bc.green = 0.0; bc.blue = 0.0;
-					ctx.set_source_rgba(bc.red,bc.green,bc.blue,0.75);
-					ctx.rectangle(ixx, ixy, ibx, 30);
-					ctx.fill();
-					ctx.move_to(mousedown[0], mousedown[1]);
-					ctx.rel_line_to(5, (barh + 10));
-					ctx.rel_line_to(-10, 0);
-					ctx.close_path();
-					ctx.fill_preserve();
-					bc.red = 1.0; bc.green = 1.0; bc.blue = 1.0;
-					ctx.set_source_rgba(bc.red,bc.green,bc.blue,0.9);
-					ctx.move_to((ixx + 20), (ixy + 20));
-					ctx.show_text(xinf);
-				}
-				if (selectedrule >= 0 && selectedrule != presel) {
-					//print("graphimg.draw: \tselectrule changed from: %d to: %d\n", presel, selectedrule);
-					var row = setuplist.get_row_at_index(selectedrule);
-					if (row != null) {
-						doupdate = false; setuplist.select_row(row); doupdate = true;
-						selectarow (dat, setuplist, flowbox, evrcombo, nthcombo, wkdcombo, fdycombo, mthcombo, fmocombo, dsc, fye, amtf, grpcombo, catcombo, grpcolb);
-					}
-				}
-				if (graphzoom == false) {
-					mousedown[0] = -100;
-					mousedown[1] = -100;
-				}
-			}
-			print("graphimg.draw: complete\n\n");
-			return true;
-		});
-*/
+		//graphpage.add(graphimg);
+		//oldgraphsize = {690.0,690.0};
 
 // graph interaction
 
@@ -1500,34 +1391,75 @@ public class FTW : Window {
 		graphimg.add_events (Gdk.EventMask.BUTTON2_MOTION_MASK);
 		graphimg.add_events (Gdk.EventMask.BUTTON3_MOTION_MASK);
 		graphimg.add_events (Gdk.EventMask.BUTTON_RELEASE_MASK);
+		graphimg.add_events (Gdk.EventMask.POINTER_MOTION_MASK);
+		graphimg.add_events (Gdk.EventMask.SCROLL_MASK);
 		graphimg.button_press_event.connect ((event) => {
 			//print("graphimg.button_press_event\n");
 			mousedown = {event.x, event.y};
 			graphpick = (event.button == 1);
 			graphzoom = (event.button == 3);
 			graphpan = (event.button == 2);
+			if (graphpick) { 
+				oldmousedown = {mousedown[0], mousedown[1]};
+				targx = mousedown[0]; targy = mousedown[1]; 
+			}
+// this doesn't work
+//			graphscroll = (event.button == 4 || event.button == 5);
 			print("graphimg.button_press_event.connect: event.button = %u\n", event.button);
-			//graphimg.queue_draw();
+			//print("graphimg.button_press_event is redrawing the graph...\n");
+			//if (graphpick) { graphimg.queue_draw(); }
 			return true;
 		});
 		graphimg.motion_notify_event.connect ((event) => {
+			if (graphzoom == false && graphpan == false && graphpick == false) { mousedown = {event.x, event.y}; }
+			//print("we're hoverin @ %f x %f\n", mousemove[0], mousemove[1]);
+			mousemove = {event.x, event.y};
 			if (graphzoom || graphpan) {
-				mousemove = {event.x, event.y};
+				//mousemove = {event.x, event.y};
+				print("graphimg.motion_notify_event is redrawing the graph...\n");
 				graphimg.queue_draw();
 			}
 			return true;
 		});
+		graphimg.scroll_event.connect ((event) => {
+			//if (graphscroll) {
+				scrolldir = UP;
+				if (event.scroll.direction == scrolldir) {
+					graphscroll = true;
+					//mousedown = {targx, targy};
+					//mousedown = {event.x, event.y};
+					mousemove = {(mousedown[0] + 50.0), (mousedown[1] + 50.0)};
+					print("graphimg.scroll_event.scroll.direction UP is redrawing the graph...\n");
+					graphimg.queue_draw();
+				}
+				scrolldir = DOWN;
+				if (event.scroll.direction == scrolldir)  {
+					graphscroll = true;
+					//mousedown = {targx, targy};
+					//mousedown = {event.x, event.y};
+					mousemove = {(mousedown[0] - 50.0), (mousedown[1] - 50.0)};
+					print("graphimg.scroll_event.scroll.direction DOWN is redrawing the graph...\n");
+					graphimg.queue_draw();
+				}
+			//}
+			return true;
+		});
+
+// reset/update stuff on mouse release
+
 		graphimg.button_release_event.connect ((event) => {
-			//print("graphimg.button_release_event\n");
+			print("graphimg.button_release_event\n");
 			graphzoom = false;
 			graphpan = false;
-			//mousedown = {event.x, event.y};
-			graphimg.queue_draw();
-			//mousedown[0] = -100;
-			//mousedown[1] = -100;
-			//oldbarh = barh;
+			graphscroll = false;
+			if (graphpick) { 
+				print("graphimg.button_release_event is redrawing the graph...\n");
+				graphimg.queue_draw(); 
+			}
 			oldgraphsize = {sizx, sizy};
 			oldgraphoffset = {posx, posy};
+			oldmousedown = {targx, targy};
+			print("graphimg.button_release_event: \toldmousedown[0] = %f\n", oldmousedown[0]);
 			return true;
 		});
 
@@ -1535,7 +1467,8 @@ public class FTW : Window {
 
 		notebook.append_page(setuppage, label2);
 		notebook.append_page(forecastpage, label3);
-		notebook.append_page(graphpage, label4); 
+		//notebook.append_page(graphpage, label4);
+		notebook.append_page(graphimg, label4); 
 
 // select row
 
@@ -1607,6 +1540,7 @@ public class FTW : Window {
 					r = s.get_index(); 
 					dat[r,0] = n.to_string();
 					forecasted = forecast(dat,forecastlistbox, iso.get_active(), r);
+					print("evrcombo.changed.connect is redrawing the graph...\n");
 					graphimg.queue_draw ();
 					//print ( "evrcombo.changed: dat[%d,%d] = %s\n", r, 0, dat[r,0]);
 				}
@@ -1621,6 +1555,7 @@ public class FTW : Window {
 					r = s.get_index();
 					dat[r,1] = n.to_string();
 					forecasted = forecast(dat,forecastlistbox, iso.get_active(), r);
+					print("nthcombo.changed.connect is redrawing the graph...\n");
 					graphimg.queue_draw ();
 					//print ( "dat[%d,%d] = %s\n", r, 0, dat[r,1]);
 				}
@@ -1653,6 +1588,7 @@ public class FTW : Window {
 						}
 					}
 					forecasted = forecast(dat,forecastlistbox, iso.get_active(), r);
+					print("wkdcombo.changed.connect is redrawing the graph...\n");
 					graphimg.queue_draw ();
 				}
 			}
@@ -1666,6 +1602,7 @@ public class FTW : Window {
 					r = s.get_index();
 					dat[r,3] = n.to_string();
 					forecasted = forecast(dat,forecastlistbox, iso.get_active(), r);
+					print("fdycombo.changed.connect is redrawing the graph...\n");
 					graphimg.queue_draw ();
 					//print ( "dat[%d,%d] = %s\n", r, 0, dat[r,3]);
 				}
@@ -1691,6 +1628,7 @@ public class FTW : Window {
 					fmocombo.set_active(ffs);
 					doupdate = true;
 					forecasted = forecast(dat,forecastlistbox, iso.get_active(), r);
+					print("mthcombo.changed.connect is redrawing the graph...\n");
 					graphimg.queue_draw ();
 					//print ( "dat[%d,%d] = %s\n", r, 0, dat[r,4]);
 				}
@@ -1705,6 +1643,7 @@ public class FTW : Window {
 					r = s.get_index();
 					dat[r,5] = n.to_string();
 					forecasted = forecast(dat,forecastlistbox, iso.get_active(), r);
+					print("fmocombo.changed.connect is redrawing the graph...\n");
 					graphimg.queue_draw ();
 					//print ( "dat[%d,%d] = %s\n", r, 0, dat[r,5]);
 				}
@@ -1722,6 +1661,7 @@ public class FTW : Window {
 						dat[r,6] = ((string) ("%lf").printf(fye.get_value()));
 					}
 					forecasted = forecast(dat,forecastlistbox, iso.get_active(), r);
+					print("fye.changed.connect is redrawing the graph...\n");
 					graphimg.queue_draw ();
 				}
 			}
@@ -1800,6 +1740,7 @@ public class FTW : Window {
 				if (s != null) { r = s.get_index(); }
 				dat[r,7] =((string) ("%.2lf").printf(amtf.get_value()));;
 				forecasted = forecast(dat,forecastlistbox, iso.get_active(), r);
+				print("amtf.changed.connect is redrawing the graph...\n");
 				graphimg.queue_draw ();
 			}
 		});
@@ -1810,6 +1751,7 @@ public class FTW : Window {
 				if (s != null) { 
 					r = s.get_index();
 					forecasted = forecast(dat,forecastlistbox, iso.get_active(), r);
+					print("iso.toggled.connect is redrawing the graph...\n");
 					graphimg.queue_draw ();
 				}
 			}
