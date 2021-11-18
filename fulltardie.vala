@@ -33,28 +33,21 @@
 // scenario files are plaintext data, in scsv format
 //
 // TODO - nov 2021
-// [X] = done
 // [!] = doing it
 // [~] = should do it but probably wont
 // [?] = stuck
 //
-// fix...
 // - [ ] fix initial graph size
 //     - [ ] fit to current month
 // - [ ] fix padding when forecast is negative vals only
 //     - [ ] re-fit on isolate toggle
 // - [ ] fix busted info label when isolating while its visible
-// - [X] fix busted mousedown after selecting a new bar then wheel-zooming
-// - [X] fix misbehaving selectedrule getting/setting for draw event
+// - [ ] fix leftover info label when switching scenarios
 // - [?] hunt down cause of graph double render after selecting a new bar
 // - [?] hunt down rare segfault that may happen after going from: graph -> isolate -> forecast
 // - [?] hunt down the negative spike that's hitting the graph but not the forecast in some scenarios
-//
-// add...
 // - [ ] set rule group color when group is selected
 // - [ ] set rule category color when group is selected
-// - [ ] re-draw forecast when changing group color if it doesn't lag -- test on pinephone
-// - [ ] re-draw graph when changing group color if it doesn't lag -- test on pinephone
 // - [!] change nth weekday counting to use 1st and nth
 //     - [ ] test it more thoroughly against actuals
 // - [?] compact params as much as possible, get it working with 200% scaling on pinephone
@@ -69,57 +62,34 @@
 //         - [ ] [every] [nth] [weekday] [*from the* fdy *occurence*] [] [*from* nth month]
 // - [ ] add changed asterisk to header bar title
 // - [?] compact-left bottom row of params (hbgrp) while keeping the reflow behavior - might have to do it manually
-// - [~] find an elegant way to switch between pre-filtering and post-filtering when isolating - need a tri-state toggle
-// - [~] find an elegant way to handle every 90th and 91st day in alternating cycles (actual from a sydney utility company).
-// - [~] remember forecast list selection
-// - [ ] drag'n'drop reorder setup rule list
+// - [!] remember forecast list selection
 // - [ ] move save/load to headerbar
 // - [ ] add overwrite confirmation dialog
 // - [ ] check/fix corrupt data in scenario files, in case they're manually edited
 // - [ ] check/fix out-of range data when setting list/combo selections
 // - [!] add bar graph
-//     - [X] pack bars into container area
-//     - [X] adapt container height to bar num * bar height + gap
-//     - [X] update graph when relevant data is changed
-//     - [X] color code bar graph using group colors
-//     - [X] add month blocks under bars in graph
-//         - [X] add month block titles
 //     - [ ] expand bar graph to fit container height when its smaller
 //         - [!] change graph scale logic to allow scaling and padding
 //             - [ ] re-enable padding
-//     - [X] select bar to select rule
-//         - [X] find out what click event works with drawingArea or context
-//             - [X] find out how to get mouse xy pos in event
-//     - [!] select bar to show date : amt : running-total
-//         - [X] render comment bubble for the above
-//         - [ ] reformat date to d b y (eg: 01 jan 2021)
-//     - [ ] only draw graph if graph tab is selected
-//     - [X] mmb pan
-//         - [X] don't pan past extents
+//     - [!] only draw graph if graph tab is selected
 //     - [ ] investigate touch pan
-//     - [X] remove scrollwindow container if panning works
-//     - [X] rmb zoom
-//         - [X] mmb + mouse x = zoom x
-//         - [X] mmb + mouse y = zoom y
-//         - [X] zoom about mouse xy
-//     - [!] investigate wheel zoom about cursor
-//         - [!] clean up the event logic
 //     - [ ] investigate touch pinch zoom
 //         - [ ] implement touch zoom without breaking mouse zoome & vies-versa
-//     - [!] if pan/zoom works, set double-click(tap) to fit (reset view)
+//     - [!] double-click(tap) to fit (reset view)
+// - [!] don't forecast when changing stuff while setup tab is selected
+//
+// moved to dec
+// - [ ] drag'n'drop reorder setup rule list
 // - [ ] add simple ascii plot to any available space after running total in forecast
 //     - [ ] pad running total
 //     - [ ] get remaining characters
 //     - [ ] plot using solid block
 //     - [ ] tint negative with red
 //     - [ ] tint positive with green
-// - [~] don't forecast when changing stuff while setup tab is selected
-// - [ ] application icons
-//
-// moved to dec
 // - [ ] optimize var usage
 // - [ ] add indented diagnostics to everything (see pile.ms)
 // - [ ] check diagnostics for redundant work and optimize
+// - [ ] embedded (or generated) application icons
 
 using Gtk;
 
@@ -134,6 +104,7 @@ bool drawit = true;
 // vala is super fussy about where variables live, so these have to be functions...
 string textcolor () { return "#55BDFF"; }
 string rowcolor () { return "#1A3B4F"; }
+string ttcolor () { return "#112633"; }
 
 // true modulo from 'cdeerinck'
 // https://stackoverflow.com/questions/41180292/negative-number-modulo-in-swift#41180619
@@ -468,11 +439,70 @@ nextdate[] findnextdate (string[] dt, int ownr) {
 	return o;
 }
 
+void renderforecast (string[,] f, Gtk.ListBox w) {
+	print("renderforecast started...\n");
+
+	// 0 = date
+	// 1 = description
+	// 2 = amount
+	// 3 = cat
+	// 4 = group
+	// 5 = runningtotal
+	// 6 = catcolor
+	// 7 = groupcolor
+	// 8 = owner
+
+	if (f.length[0] > 0) {
+		if (f.length[1] == 9) {
+			int[] sls = {8,0,0,0,0};
+
+// get string lengths
+
+			for (var r = 0; r < f.length[0]; r++) {
+				if (sls[4] < f[r,4].length) { sls[4] = f[r,4].length; } // group
+				if (sls[3] < f[r,3].length) { sls[3] = f[r,3].length; } // cat
+				if (sls[2] < f[r,2].length) { sls[2] = f[r,2].length; } // amount
+				if (sls[1] < f[r,1].length) { sls[1] = f[r,1].length; } // description
+			}
+
+// render list
+
+			print("renderforecast:\tdat is OK.\n");
+			for (var r = 0; r < f.length[0]; r++) {
+				var row = w.get_row_at_index(r);
+				var rl = (Label) row.get_child();
+				string clr = f[r,7];
+				if (clr.strip() == "") { clr = textcolor(); }
+				rl.set_tooltip_text(f[r,8]);
+				var mqq = "".concat(
+					"<span color='", clr, "' font='monospace 12px'><b>",
+					f[r,0], " : ", 
+					("%-" + sls[3].to_string() + "s").printf(f[r,3]), " ",
+					("%-" + sls[2].to_string() + "s").printf(f[r,2]), " ",
+					("%-" + sls[1].to_string() + "s").printf(f[r,1]), " ",
+					" : ", f[r,5], "</b></span>"
+				);
+				//print("renderforecast:\tnew markup is is: %s\n", mqq);
+				rl.set_markup(mqq);
+				var g = new Gdk.RGBA();
+				g.parse(clr);
+				g.alpha = 0.1;
+				row.override_background_color(NORMAL, g);
+				g.parse(textcolor());
+				g.alpha = 0.25;
+				row.override_background_color(PRELIGHT, g);
+				g.alpha = 0.5;
+				row.override_background_color(SELECTED, g);
+			}
+		}
+	}
+	print("renderforecast completed.\n");
+}
+
 // forecast everything in dat and render it
 string[,] forecast (string[,] d, Gtk.ListBox w, bool iso, int srow) {
 	print("forecast started\n");
-// gtk widget clearing one-liner posted by Evan Nemerson: https://stackoverflow.com/questions/36215425/vala-how-do-you-delete-all-the-children-of-a-gtk-container
-	w.foreach ((element) => w.remove (element));
+
 	string[] rendered = {};
 
 // pad lengths: date, group, category, amount, description
@@ -496,83 +526,67 @@ string[,] forecast (string[,] d, Gtk.ListBox w, bool iso, int srow) {
 		}
 	}
 
-// get pad lengths
-
-	for (var u = 0; u < fdat.length; u++) {
-		var aml = ("%.2lf").printf(fdat[u].amt);
-		if (sls[1] < fdat[u].grp.length) { sls[1] = fdat[u].grp.length; }
-		if (sls[2] < fdat[u].cat.length) { sls[2] = fdat[u].cat.length; }
-		if (sls[3] < aml.length) { sls[3] = aml.length; }
-		if (sls[4] < fdat[u].dsc.length) { sls[4] = fdat[u].dsc.length; }
-	}
-
-// padding strings, appending the owner int to post-process after
+// putting data into string rows of a 1d array for sorting... this is a dumb workaround to vala's limited array handling
 
 	for (var u = 0; u < fdat.length; u++) {
 		var rfd = fdat[u];
 		var ch = new char[9];
 		rfd.nxd.strftime(ch,"%y %m %d");
 		string txt = "";
-		string amt = ("%" + sls[3].to_string() + ".2lf").printf(rfd.amt);
-		//string sgp = ("%-" + sls[1].to_string() + "s").printf(rfd.grp);
-		string sct = ("%-" + sls[2].to_string() + "s").printf(rfd.cat);
-		string sds = ("%-" + sls[4].to_string() + "s").printf(rfd.dsc);
-		txt = ((string) ch) + " : " + sct + " : " + amt + " : " + sds + ";" + (("%d").printf(rfd.frm)) + ";" + rfd.cco + ";" + rfd.gco + ";" + rfd.grp;
+		txt = ((string) ch) + " : " + rfd.cat + " : " + ("%.2lf").printf(rfd.amt) + " : " + rfd.dsc + ";" + (("%d").printf(rfd.frm)) + ";" + rfd.cco + ";" + rfd.gco + ";" + rfd.grp;
 		rendered += txt;
 		//print("assembling raw forecast row: %s\n", txt);
 	}
 
-// sorting a string before post-processing
-// this is a stupid workaround to vala's basic array handling
+// sorting
 
 	GLib.qsort_with_data<string> (rendered, sizeof(string), (a, b) => GLib.strcmp (a, b));
 	double rut = 0.0;
 // fcdat = date, description, amount, cat, group, runningtotal, catcolor, groupcolor, owner
 	string[,] fcdat = new string[rendered.length,9];
+
+// clearing the list
+
+	w.foreach ((element) => w.remove (element));
+
 	for (var r = 0; r < rendered.length; r++) {
 		if (rendered[r] != null || rendered[r].length > 0) {
 			string[] fsb = rendered[r].split(";");
 			string[] subs = fsb[0].split(":");
-// running total has to be done after sorting
 			var amtnum = subs[2].strip();
 			if (amtnum != null || amtnum.length > 0) {
 				rut = rut + double.parse(amtnum);
 			}
+			fcdat[r,0] = subs[0].strip();		// date
+			fcdat[r,1] = subs[3].strip();		// description
+			fcdat[r,2] = subs[2].strip();		// amount
+			fcdat[r,3] = subs[1].strip();		// cat
+			fcdat[r,4] = fsb[4];				// group
+			fcdat[r,5] = ("%.2lf").printf(rut);	// runningtotal
+			fcdat[r,6] = fsb[2];				// catcolor
+			fcdat[r,7] = fsb[3];				// groupcolor
+			fcdat[r,8] = fsb[1];				// owner
 			var lbl = new Label("");
 			lbl.xalign = ((float) 0.0);
 			lbl.set_tooltip_text(fsb[1]);
 			var mqq = "".concat("<span color='", fsb[3], "' font='monospace 12px'><b>", fsb[0].concat(" : ", ("%.2lf").printf(rut)), "</b></span>");
 			lbl.set_markup(mqq);
 			w.add(lbl);
-			fcdat[r,0] = subs[0].strip();
-			fcdat[r,1] = subs[3].strip();
-			fcdat[r,2] = subs[2].strip();
-			fcdat[r,3] = subs[1].strip();
-			fcdat[r,4] = fsb[4];
-			fcdat[r,5] = ("%.2lf").printf(rut);
-			fcdat[r,6] = fsb[2];
-			fcdat[r,7] = fsb[3];
-			fcdat[r,8] = fsb[1];
 		}
 	}
 	w.show_all();
-	print("forecast: fcdat[0,8] = %s\n", fcdat[0,8]);
-	//for (var r = 0; r < fcdat.length[0]; r++) {
-	//	for (var i = 0; i < fcdat.length[1]; i++) {
-	//		print("forecast: \tfcdat[%d,%d] = %s\n", r, i, fcdat[r,i]);
-	//	}
-	//}
-	return fcdat;
+	renderforecast(fcdat,w);
 	print("forecast done\n");
+	return fcdat;
 }
 
 //paint setup list
-void paintsetuplist(string[,] d, Gtk.ListBox b) {
+void rendersetuplist(string[,] d, Gtk.ListBox b) {
 // paints all rows in setuplist
 // takes group color, applies to text,
 // then tints the row using same color @ 0.25 alpha
 // categroy color not used in lists as it gets too messy
-	print("\tpaintsetuplist started\n");
+	print("\trendersetuplist started\n");
 	var bs = b.get_selected_row();
 	var bsi = 0;
 	if (bs != null) { bsi = bs.get_index(); }
@@ -595,7 +609,7 @@ void paintsetuplist(string[,] d, Gtk.ListBox b) {
 		g.alpha = 1.0;
 		row.override_background_color(SELECTED, g);
 	}
-	print("\tpaintsetuplist completed\n");
+	print("\trendersetuplist completed\n");
 }
 
 // gather unique group/category names
@@ -655,30 +669,25 @@ string[] getchoicelist(string[,] d, int idx) {
 	return o;
 }
 
-void adjustgroupcolor (string[,] d, Gtk.ListBox l, Entry h, double r, double g, double b, bool x) {
+void adjustgroupcolor (string[,] d, string[,] f, int e, Entry h, double r, double g, double b, bool x) {
 // data, setuplist, hex-entry, red slider val, green slider val, blue slider val, do hex-entry
-	var s = l.get_selected_row();
-	var e = 0;
-	if (s != null) {
-		e = s.get_index();
-		string hx = htmlcol (((int) r), ((int) g), ((int) b));
-		if (x) { hx = h.text; }
+	string hx = htmlcol (((int) r), ((int) g), ((int) b));
+	if (x) { hx = h.text; }
 // prevent overwriting hex field if editing hex field
-		if (x == false) { doupdate = false; h.text = hx; doupdate = true; }
-		var c = new Gdk.RGBA();
-		if (c.parse(hx)) {
-			d[e,12] = hx;
-			for (var w = 0; w < d.length[0]; w++) {
-				if (d[w,9] == d[e,9]) {
-					//if (e == w) { hx = rowcolor(); }
-					var mqq = "".concat("<span color='", hx, "' font='monospace 16px'><b>", d[w,10], "</b></span>");
-					var y = l.get_row_at_index(w);
-					var u = (Label) y.get_child();
-					c.alpha = 0.1;
-					y.override_background_color(NORMAL, c);
-					d[w,12] = hx;
-					u.set_markup(mqq);
-				}
+	if (x == false) { doupdate = false; h.text = hx; doupdate = true; }
+	var c = new Gdk.RGBA();
+	if (c.parse(hx)) {
+		d[e,12] = hx;
+// update dat, matching group only
+		for (var w = 0; w < d.length[0]; w++) {
+			if (d[w,9] == d[e,9]) {
+				d[w,12] = hx;
+			}
+		}
+// also update forecasted, matching group only
+		for (var w = 0; w < f.length[0]; w++) {
+			if (f[w,4] == d[e,9]) {
+				f[w,7] = hx;
 			}
 		}
 	}
@@ -764,7 +773,7 @@ void selectarow (string[,] dat, Gtk.ListBox b, Gtk.FlowBox fb, Gtk.ComboBoxText 
 	g.parse(clr);
 	gcb.override_background_color(NORMAL, g);
 // set foreground text
-	paintsetuplist(dat,b);
+	rendersetuplist(dat,b);
 	doupdate = true;
 	print("\tselectarow completed\n");
 }
@@ -1074,30 +1083,20 @@ public class FTW : Window {
 
 // graph page
 
-		//var graphpage = new ScrolledWindow(null, null);
-		//var graphpage = new Box(VERTICAL,0);
-		//graphpage.override_background_color(NORMAL, slc);
 		var label4 = new Label(null);
 		label4.set_markup("<b><big>graph</big></b>");
 		var graphimg = new Gtk.DrawingArea();
+
 // graph draw -- move to events below once its allgood
 
-// new graph that fills xy size (corodsys) for pan & zoom
-
 		graphimg.draw.connect((ctx) => {
-			print("\ngraphimg.draw: started...\n");
+			//print("\ngraphimg.draw: started...\n");
 			if (drawit) {
 				var presel = selectedrule;
-				//var csx = graphpage.get_allocated_width();
-				//var csy = graphpage.get_allocated_height();
 				var csx = graphimg.get_allocated_width();
 				var csy = graphimg.get_allocated_height();
-				print("graphimg.draw: \tcsx = %f\n", csx);
-				print("graphimg.draw: \tcsy = %f\n", csy);
 
 // graph coords
-// sizx = oldsizex + (mosemovex - mousedownx)
-// posx = oldposx - (posx * 0.5)
 
 				sizx = oldgraphsize[0];
 				sizy = oldgraphsize[1];
@@ -1105,13 +1104,13 @@ public class FTW : Window {
 					sizx = (oldgraphsize[0] + (mousemove[0] - mousedown[0]));
 					sizy = (oldgraphsize[1] + (mousemove[1] - mousedown[1]));
 				}
-				print("graphimg.draw: \tsizx = %f\n", sizx);
-				print("graphimg.draw: \tmousedown[0] = %f\n", mousedown[0]);
-				print("graphimg.draw: \tmousemove[0] = %f\n", mousemove[0]);
-				print("graphimg.draw: \toldgraphsize[0] = %f\n", oldgraphsize[0]);
-				print("graphimg.draw: \toldgraphoffset[0] = %f\n", oldgraphoffset[0]);
-				print("graphimg.draw: \toldmousedown[0] = %f\n", oldmousedown[0]);
-				print("graphimg.draw: \ttargx = %f\n", targx);
+				//print("graphimg.draw: \tsizx = %f\n", sizx);
+				//print("graphimg.draw: \tmousedown[0] = %f\n", mousedown[0]);
+				//print("graphimg.draw: \tmousemove[0] = %f\n", mousemove[0]);
+				//print("graphimg.draw: \toldgraphsize[0] = %f\n", oldgraphsize[0]);
+				//print("graphimg.draw: \toldgraphoffset[0] = %f\n", oldgraphoffset[0]);
+				//print("graphimg.draw: \toldmousedown[0] = %f\n", oldmousedown[0]);
+				//print("graphimg.draw: \ttargx = %f\n", targx);
 				posx = oldgraphoffset[0];
 				posy = oldgraphoffset[1];
 				if (graphzoom || graphscroll) {
@@ -1119,38 +1118,25 @@ public class FTW : Window {
 					posy = oldgraphoffset[1] + ( (mousedown[1] - oldgraphoffset[1]) - ( (mousedown[1] - oldgraphoffset[1]) * (sizy / oldgraphsize[1]) ) ) ;
 					targx = oldmousedown[0] + ( (mousedown[0] - oldmousedown[0]) - ( (mousedown[0] - oldmousedown[0]) * (sizx / oldgraphsize[0]) ) ) ;
 					targy = oldmousedown[1] + ( (mousedown[1] - oldmousedown[1]) - ( (mousedown[1] - oldmousedown[1]) * (sizy / oldgraphsize[1]) ) ) ;
-					print("graphimg.draw: \t\tgraphzoom/graphscroll posx = %f\n", posx);
-					//print("graphimg.draw: \ttargx after zoom = %f\n", targx);
 				}
 				if(graphpan) {
 					posx = oldgraphoffset[0] + (mousemove[0] - mousedown[0]);
 					posy = oldgraphoffset[1] + (mousemove[1] - mousedown[1]);
 					targx = oldmousedown[0] + (mousemove[0] - mousedown[0]);
 					targy = oldmousedown[1] + (mousemove[1] - mousedown[1]);
-					//print("graphimg.draw: \tmousemove[0] (%f) - mousedown[0] (%f) = %f\n", mousemove[0], mousedown[0], (mousemove[0] - mousedown[0]));
-					print("graphimg.draw: \t\tgraphpan posx = %f\n", posx);
-					//print("graphimg.draw: \ttargx after pan = %f\n", targx);
 				}
-				print("graphimg.draw: \ttargx after pan & zoom = %f\n", targx);
 				if (graphpick) {
 					targx = mousedown[0];
 					targy = mousedown[1];
 				}
-				//posx = Math.floor(posx);
-				//posy = Math.floor(posy);
-				//targx = Math.floor(targx);
-				//targy = Math.floor(targy);
-				
-				print("graphimg.draw: \ttargx after pan & zoom = %f\n", targx);
 
-// graph margins
+// graph margins, not used for now
 
-				var margx = 40.0;
-				var margy = 40.0;
+				//var margx = 40.0;
+				//var margy = 40.0;
 
 // bar height
 
-				//var barh = (sizy - (2 * margy)) / forecasted.length[0];
 				var barh = sizy / forecasted.length[0];
 
 // get min/max vals from running total
@@ -1168,11 +1154,9 @@ public class FTW : Window {
 
 				var zro = minrt.abs();
 				var xmx = zro + maxrt;
-				//var sfc = (sizx - (2.0 * margx)) / xmx;
 				var sfc = sizx / xmx;
 				zro = zro * sfc;
 				zro = Math.floor(zro);
-				//zro = zro + margx;
 
 // paint bg
 
@@ -1209,33 +1193,26 @@ public class FTW : Window {
 
 				var stackmo = 0.0;
 				stackmo = stackmo + posy;
-				//print("checking mol count: %d\n",mol.length);
 				for (int i = 0; i < mol.length; i++) {
-					//print("\tchecking month index: %d\n",mox[i]);
 					bc.parse(rowcolor());
 					if (((i + 1) % 2) == 0) {
 						bc.parse(textcolor());
 					}
-					ctx.set_source_rgba(bc.red,bc.green,bc.blue,0.1);
+					ctx.set_source_rgba(bc.red,bc.green,bc.blue,0.05);
 					ctx.rectangle(0, stackmo, csx, mol[i]);
 					ctx.fill();
 					bc.parse(textcolor());
 					ctx.set_source_rgba(bc.red,bc.green,bc.blue,0.3);
-					//ctx.select_font_face ("Wut", Cairo.FontSlant.NORMAL, Cairo.FontWeight.BOLD);
 					ctx.select_font_face("Monospace",Cairo.FontSlant.NORMAL,Cairo.FontWeight.BOLD);
 					ctx.set_font_size (14);
 					ctx.move_to (5, (stackmo+18));
 					var motx = moi(mox[i]);
-					//print("\tchecking month draw label: %s\n",motx);
 					ctx.show_text(motx);
 					stackmo += mol[i];
 				}
 
 // check selection hit
 
-				//print("graphimg.draw: mousedown.x = %f\n", mousedown[0]);
-				//print("graphimg.draw: mousedown.y = %f\n", mousedown[1]);
-				//if (graphzoom) { print("graphimg.draw: graphzoom = true\n"); } else { print("graphimg.draw: graphzoom = false\n"); } 
 				var px = 0.0;
 				var py = 0.0;
 				if (graphpick && mousedown[0] > 0 && graphzoom == false && graphpan == false && graphscroll == false) {
@@ -1253,11 +1230,8 @@ public class FTW : Window {
 							px = px + posx;
 							py = i * barh;
 							py = py + posy;
-							//print("graphimg.draw: \tchecking hit box: %f,%f -- %f,%f\n", px,(px + xx.abs()), (i * barh), ((i * barh) + (barh - 1)));
 							if (mousedown[0] > px && mousedown[0] < (px + xx.abs())) {
 								if (mousedown[1] > py && mousedown[1] < (py + (barh - 1))) {
-									//bc.red = 1.0; bc.green = 0.3; bc.blue = 0.0;
-									//print("graphimg.draw: \t\tchanging selectedrule to: %s\n", forecasted[i,8]);
 									selectedrule = int.parse(forecasted[i,8]);
 									selectedtrns = i;
 									targx = mousedown[0]; targy = mousedown[1];
@@ -1274,15 +1248,11 @@ public class FTW : Window {
 					xx = 0.0;
 					px = 0.0;
 					py = 0.0;
-					//print("graphing %s\n", forecasted[i,1]);
-					
 					if (forecasted[i,5] != "") {
-						//print("extracting running total: %s\n", forecasted[i,5]);
 						xx = double.parse(forecasted[i,5]);
 					}
 					if (forecasted[i,7] != "") {
 						if(bc.parse(forecasted[i,7])) {
-							//print("extracting group color: %s\n", forecasted[i,7]);
 						} else {
 							bc.parse(textcolor());
 						}
@@ -1294,64 +1264,58 @@ public class FTW : Window {
 					px = px + posx;
 					py = i * barh;
 					py = py + posy;
-					if (selectedrule == int.parse(forecasted[i,8])) { bc.red = 1.0; bc.green = 1.0; bc.blue = 1.0; }
 					ctx.set_source_rgba(bc.red,bc.green,bc.blue,0.9);
 					ctx.rectangle(px, py, xx.abs(), (barh - 1));
 					ctx.fill ();
+					if (selectedrule == int.parse(forecasted[i,8])) { 
+						bc.red = 1.0; bc.green = 1.0; bc.blue = 1.0;
+						ctx.set_source_rgba(bc.red,bc.green,bc.blue,0.5);
+						ctx.rectangle(px, py, xx.abs(), (barh - 1));
+						ctx.fill();
+						ctx.set_source_rgba(bc.red,bc.green,bc.blue,0.9);
+						ctx.rectangle(px+1, py+1, xx.abs()-2, (barh - 3));
+						ctx.set_line_width(2);
+						ctx.stroke();
+					}
 				}
-
-				//bc.red = 1.0; bc.green = 0.0; bc.blue = 0.0;
-				//ctx.set_source_rgba(bc.red,bc.green,bc.blue,0.75);
-				//ctx.arc(targx, targy, 10.0, 0, 2.0*3.14);
-				//ctx.fill();
 
 // draw selected transaction overlay
 
-				//if (graphpick && mousedown[0] > 0 && graphzoom == false && graphpan == false && graphscroll == false && selectedtrns != 99999) {
 				if (selectedtrns != 99999) {
-					string xinf = "".concat(forecasted[selectedtrns,0], " : ", forecasted[selectedtrns,5]);
-					//var ibx = (xinf.length * 11);
+					// now.format ("%d/%m/%Y")
+					string[] jj = (forecasted[selectedtrns,0]).split(" ");
+					string xinf = "".concat(jj[2], " ", moi((int.parse(jj[1]) - 1)), " 20", jj[0], " : ", forecasted[selectedtrns,5]);
 					Cairo.TextExtents extents;
 					ctx.text_extents (xinf, out extents);
 					var ibx = extents.width + 40;
-					//var ixx = double.min(double.max(20,(mousedown[0] - (ibx * 0.5))),(graphpage.get_allocated_width() - (ibx + 20)));
 					var ixx = double.min(double.max(20,(targx - (ibx * 0.5))),(graphimg.get_allocated_width() - (ibx + 20)));
-					//var ixx = graphpage.get_allocated_width() * 0.5 - (ibx * 0.5);
-					//var ixy = targy + 10;
 					var ixy = double.min(double.max(20,(targy + 20)),(graphimg.get_allocated_height() - 50));
 					var ltx = double.min(double.max((ixx + 10), targx),(ixx + ibx - 10));
 					var lty = double.min(double.max((ixy + 10), targy),(ixy + 20));
-					bc.red = 0.0; bc.green = 0.0; bc.blue = 0.0;
+					bc.parse(ttcolor());
 					ctx.set_source_rgba(bc.red,bc.green,bc.blue,1.0);
 					ctx.rectangle(ixx, ixy, ibx, 30);
 					ctx.fill();
 
 // draw pointer
-// cairo doesn't seem to do variable width points, unless there's a hacky way to scale it
-// doing it with crossproduct for now...
+// cairo doesn't seem to do variable width lines, unless there's a hacky way to scale it
+// doing it as a triangle for now...
 
 					ctx.set_line_cap (Cairo.LineCap.ROUND);
 					ctx.move_to(targx, targy);
 					double[] ab = { (targx - ltx), (targy - lty), 0.0 };
-					//                 (a.1 * b.2) -   (a.2 * b.1),     (a.2 * b.0) -   (a.0 * b.2),     (a.0 * b.1) -   (a.1 * b.0)
 					double[] cx = { ((ab[1] * 1.0) - (ab[2] * 0.0)), ((ab[2] * 0.0) - (ab[0] * 1.0)), ((ab[0] * 0.0) - (ab[1] * 0.0)) };
-					//print("graphimg.draw: \tcx[0] = %f, cx[1] = %f\n", cx[0], cx[1]);
 					double cxl = Math.sqrt( (cx[0] * cx[0]) + (cx[1] * cx[1]) + (cx[2] * cx[2]) );
 					if (cxl > 0) {
-						//print("graphimg.draw: \tcx.len = %f\n", cxl);
 						cx[0] = ((cx[0] / cxl) * 5.0);
 						cx[1] = ((cx[1] / cxl) * 5.0);
-						//print("graphimg.draw: \tnormalized cx[0] = %f, normalized cx[1] = %f\n", cx[0], cx[1]);
 						ctx.line_to((ltx + cx[0]),(lty + cx[1]));
 						ctx.line_to((ltx - cx[0]),(lty - cx[1]));
-						//ctx.line_to(targx, targy);
 						ctx.close_path();
-						//ctx.set_line_width(2);
-						//ctx.stroke();
 						ctx.fill();
 					}
 					ctx.move_to((ixx + 20), (ixy + 20));
-					bc.red = 1.0; bc.green = 1.0; bc.blue = 1.0;
+					bc.parse(textcolor());
 					ctx.set_source_rgba(bc.red,bc.green,bc.blue,0.9);
 					ctx.show_text(xinf);
 				}
@@ -1360,7 +1324,6 @@ public class FTW : Window {
 // this is triggering a double draw for some reason...
 
 				if (selectedrule >= 0 && selectedrule != presel) {
-					//print("graphimg.draw: \tselectrule changed from: %d to: %d\n", presel, selectedrule);
 					var row = setuplist.get_row_at_index(selectedrule);
 					if (row != null) {
 						doupdate = false; setuplist.select_row(row); doupdate = true;
@@ -1368,7 +1331,7 @@ public class FTW : Window {
 					}
 				}
 
-// not used anymore
+// reset mouseown if not doing anythting with it
 
 				if (graphzoom == false && graphpan == false && graphscroll == false) {
 					mousedown[0] = 0;
@@ -1385,11 +1348,9 @@ public class FTW : Window {
 					oldmousedown = {targx, targy};
 				}
 			}
-			print("graphimg.draw: complete\n\n");
+			//print("graphimg.draw: complete\n\n");
 			return true;
 		});
-		//graphpage.add(graphimg);
-		//oldgraphsize = {690.0,690.0};
 
 // graph interaction
 
@@ -1422,7 +1383,7 @@ public class FTW : Window {
 			mousemove = {event.x, event.y};
 			if (graphzoom || graphpan) {
 				//mousemove = {event.x, event.y};
-				print("graphimg.motion_notify_event is redrawing the graph...\n");
+				//print("graphimg.motion_notify_event is redrawing the graph...\n");
 				graphimg.queue_draw();
 			}
 			return true;
@@ -1435,7 +1396,7 @@ public class FTW : Window {
 					//mousedown = {targx, targy};
 					//mousedown = {event.x, event.y};
 					mousemove = {(mousedown[0] + 50.0), (mousedown[1] + 50.0)};
-					print("graphimg.scroll_event.scroll.direction UP is redrawing the graph...\n");
+					//print("graphimg.scroll_event.scroll.direction UP is redrawing the graph...\n");
 					graphimg.queue_draw();
 				}
 				scrolldir = DOWN;
@@ -1444,7 +1405,7 @@ public class FTW : Window {
 					//mousedown = {targx, targy};
 					//mousedown = {event.x, event.y};
 					mousemove = {(mousedown[0] - 50.0), (mousedown[1] - 50.0)};
-					print("graphimg.scroll_event.scroll.direction DOWN is redrawing the graph...\n");
+					//print("graphimg.scroll_event.scroll.direction DOWN is redrawing the graph...\n");
 					graphimg.queue_draw();
 				}
 			//}
@@ -1763,8 +1724,6 @@ public class FTW : Window {
 			}
 		});
 
-// rename rule is just rebulding the list, since getting at listboxname/row[x]/labelname/text is a fucking nightmare of OOP shitfuckery
-
 		dsc.changed.connect(() => {
 			if (doupdate) {
 				if (dsc.text != null) {
@@ -1800,6 +1759,7 @@ public class FTW : Window {
 					ggg.adjustment.value = ((double) ((int) (g.green * 255.0)));
 					bbb.adjustment.value = ((double) ((int) (g.blue * 255.0)));
 					gpop.show_all();
+					hhh.visible = false;
 					doupdate = true;
 				}
 			}
@@ -1807,17 +1767,68 @@ public class FTW : Window {
 		});
 		rrr.adjustment.value_changed.connect(() => {
 			if (doupdate) {
-				adjustgroupcolor(dat, setuplist, hhh, rrr.adjustment.value, ggg.adjustment.value, bbb.adjustment.value, false);
+				var s = setuplist.get_selected_row();
+				var r = 0;
+				if (s != null) {
+					doupdate = false;
+					r = s.get_index();
+					adjustgroupcolor(dat, forecasted, r, hhh, rrr.adjustment.value, ggg.adjustment.value, bbb.adjustment.value, false);
+					if (notebook.get_current_page() == 0) {
+						rendersetuplist(dat, setuplist);
+					}
+					if (notebook.get_current_page() == 1) {
+						renderforecast(forecasted, forecastlistbox);
+					}
+					if (notebook.get_current_page() == 2) {
+						renderforecast(forecasted, forecastlistbox);
+						graphimg.queue_draw ();
+					}
+					doupdate = true;
+				}
 			}
 		});
 		ggg.adjustment.value_changed.connect(() => {
 			if (doupdate) {
-				adjustgroupcolor(dat, setuplist, hhh, rrr.adjustment.value, ggg.adjustment.value, bbb.adjustment.value, false);
+				var s = setuplist.get_selected_row();
+				var r = 0;
+				if (s != null) {
+					doupdate = false;
+					r = s.get_index();
+					adjustgroupcolor(dat, forecasted, r, hhh, rrr.adjustment.value, ggg.adjustment.value, bbb.adjustment.value, false);
+					if (notebook.get_current_page() == 0) {
+						rendersetuplist(dat, setuplist);
+					}
+					if (notebook.get_current_page() == 1) {
+						renderforecast(forecasted, forecastlistbox);
+					}
+					if (notebook.get_current_page() == 2) {
+						renderforecast(forecasted, forecastlistbox);
+						graphimg.queue_draw ();
+					}
+					doupdate = true;
+				}
 			}
 		});
 		bbb.adjustment.value_changed.connect(() => {
 			if (doupdate) {
-				adjustgroupcolor(dat, setuplist, hhh, rrr.adjustment.value, ggg.adjustment.value, bbb.adjustment.value, false);
+				var s = setuplist.get_selected_row();
+				var r = 0;
+				if (s != null) {
+					doupdate = false;
+					r = s.get_index();
+					adjustgroupcolor(dat, forecasted, r, hhh, rrr.adjustment.value, ggg.adjustment.value, bbb.adjustment.value, false);
+					if (notebook.get_current_page() == 0) {
+						rendersetuplist(dat, setuplist);
+					}
+					if (notebook.get_current_page() == 1) {
+						renderforecast(forecasted, forecastlistbox);
+					}
+					if (notebook.get_current_page() == 2) {
+						renderforecast(forecasted, forecastlistbox);
+						graphimg.queue_draw ();
+					}
+					doupdate = true;
+				}
 			}
 		});
 		hhh.changed.connect (() => {
@@ -1825,12 +1836,27 @@ public class FTW : Window {
 				if (hhh.text.strip() != "") {
 					var g = new Gdk.RGBA();
 					if (g.parse(hhh.text)) {
-						doupdate = false;
-						adjustgroupcolor(dat, setuplist, hhh, rrr.adjustment.value, ggg.adjustment.value, bbb.adjustment.value, true);
-						rrr.adjustment.value = ((double) ((int) (g.red * 255.0)));
-						ggg.adjustment.value = ((double) ((int) (g.green * 255.0)));
-						bbb.adjustment.value = ((double) ((int) (g.blue * 255.0)));
-						doupdate = true;
+						var s = setuplist.get_selected_row();
+						var r = 0;
+						if (s != null) {
+							doupdate = false;
+							r = s.get_index();
+							adjustgroupcolor(dat, forecasted, r, hhh, rrr.adjustment.value, ggg.adjustment.value, bbb.adjustment.value, false);
+							if (notebook.get_current_page() == 0) {
+								rendersetuplist(dat, setuplist);
+							}
+							if (notebook.get_current_page() == 1) {
+								renderforecast(forecasted, forecastlistbox);
+							}
+							if (notebook.get_current_page() == 2) {
+								renderforecast(forecasted, forecastlistbox);
+								graphimg.queue_draw ();
+							}
+							rrr.adjustment.value = ((double) ((int) (g.red * 255.0)));
+							ggg.adjustment.value = ((double) ((int) (g.green * 255.0)));
+							bbb.adjustment.value = ((double) ((int) (g.blue * 255.0)));
+							doupdate = true;
+						}
 					}
 				}
 			}
