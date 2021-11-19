@@ -1,95 +1,6 @@
 // fulltardie
-// forecast transactions that have heinously complex recurrence rules
+// forecast transactions that have complex recurrence rules
 // by c.p.brown 2016~2021
-//
-// 4th edition 2021
-// using Vala for compatibility with mainline Linux on 64-bit Arm devices (futureproofing)
-// added compactable ui for phones, expanded forecasting function capabilities
-// tested OK on Linux 4.19.0-17-amd64, Xfce 4.14
-// tested OK on Linux 5.10-sunxi64, Gnome 40.5 (though graph interaction is busted atm)
-//
-// *** minimal safety atm; you can hit a segfault without too much effort ***
-// not usable on pinephone/phosh at default 200% scaling atm; need re-think how to edit params and see results at the same time,
-// 150% scaling is good for now, but there are still issues with fields stealing focus, 
-// invoking a horrid phosh vkb jank-fest requiring much repeated thumbing of the screen to remedy...
-// it'll take me a while to come up with a more tolerable pinephone experience
-//
-// acknowledgements:
-// hsvtorgb based on hsv-lab.r by Christopher Ross-Gill: http://www.rebol.org/view-script.r?script=hsv-lab.r
-// dmod based on answer by 'cdeerinck': https://stackoverflow.com/questions/41180292/negative-number-modulo-in-swift#41180619
-// lymd based on most Rosetta Code solutions to this task
-// gtk widget clearing one-liner by Evan Nemerson: https://stackoverflow.com/questions/36215425/vala-how-do-you-delete-all-the-children-of-a-gtk-container
-//
-// otherwise, mostly written via brute force trial & error thanks to Vala's amazing lack of straightforward examples
-// also on that note: OOP is a fucking mental illness. I miss being able to do stuff like button.color = red
-//
-// example usage (pre-release):
-// mkdir ~/Desktop/fulltardie && cd ~/Desktop/fulltardie
-// wget -O fulltardie.vala https://raw.githubusercontent.com/snotbubble/fulltardie4/main/fulltardie.vala
-// valac fulltardie.vala --pkg gtk+-3.0 -X -lm
-// ./fulltardie
-//
-// .scenario files are read/written in the same dir
-// scenario files are plaintext data, in scsv format
-//
-// TODO - nov 2021
-// [!] = doing it
-// [~] = should do it but probably wont
-// [?] = stuck
-//
-// - [ ] fix initial graph size
-//     - [ ] fit to current month
-// - [ ] fix padding when forecast is negative vals only
-//     - [ ] re-fit on isolate toggle
-// - [ ] fix busted info label when isolating while its visible
-// - [ ] fix leftover info label when switching scenarios
-// - [?] hunt down cause of graph double render after selecting a new bar
-// - [?] hunt down rare segfault that may happen after going from: graph -> isolate -> forecast
-// - [?] hunt down the negative spike that's hitting the graph but not the forecast in some scenarios
-// - [ ] set rule group color when group is selected
-// - [ ] set rule category color when group is selected
-// - [!] change nth weekday counting to use 1st and nth
-//     - [ ] test it more thoroughly against actuals
-// - [?] compact params as much as possible, get it working with 200% scaling on pinephone
-//     - [ ] plain-english improvements (depends on dpi fix above):
-//         - [ ] [every] [weekday closest to *every*] [nth *day*] [] [of nth month] []
-//         - [ ] [every] [weekday closest to *every*] [nth *day*] [] [] [*from* month]
-//         - [ ] [every] [weekday closest to *every*] [nth *day*] [*from the* fdy] [] [*from* month]
-//         - [ ] [the] [weekday closest to *the*] [nth] [] [of nth month] []
-//         - [ ] [every] [nth] [day] [] [] [*from* month]
-//         - [ ] [the] [nth] [day] [] [] [*of* month]
-//         - [ ] [every] [nth] [weekday] [*from the* fdy *occurence*] [of nth month] []
-//         - [ ] [every] [nth] [weekday] [*from the* fdy *occurence*] [] [*from* nth month]
-// - [ ] add changed asterisk to header bar title
-// - [?] compact-left bottom row of params (hbgrp) while keeping the reflow behavior - might have to do it manually
-// - [!] remember forecast list selection
-// - [ ] move save/load to headerbar
-// - [ ] add overwrite confirmation dialog
-// - [ ] check/fix corrupt data in scenario files, in case they're manually edited
-// - [ ] check/fix out-of range data when setting list/combo selections
-// - [!] add bar graph
-//     - [ ] expand bar graph to fit container height when its smaller
-//         - [!] change graph scale logic to allow scaling and padding
-//             - [ ] re-enable padding
-//     - [!] only draw graph if graph tab is selected
-//     - [ ] investigate touch pan
-//     - [ ] investigate touch pinch zoom
-//         - [ ] implement touch zoom without breaking mouse zoome & vies-versa
-//     - [!] double-click(tap) to fit (reset view)
-// - [!] don't forecast when changing stuff while setup tab is selected
-//
-// moved to dec
-// - [ ] drag'n'drop reorder setup rule list
-// - [ ] add simple ascii plot to any available space after running total in forecast
-//     - [ ] pad running total
-//     - [ ] get remaining characters
-//     - [ ] plot using solid block
-//     - [ ] tint negative with red
-//     - [ ] tint positive with green
-// - [ ] optimize var usage
-// - [ ] add indented diagnostics to everything (see pile.ms)
-// - [ ] check diagnostics for redundant work and optimize
-// - [ ] embedded (or generated) application icons
 
 using Gtk;
 
@@ -108,60 +19,20 @@ string ttcolor () { return "#112633"; }
 
 // true modulo from 'cdeerinck'
 // https://stackoverflow.com/questions/41180292/negative-number-modulo-in-swift#41180619
-int dmod (int l, int r) {
+int dmod (int l, int r, int ind) {
+	// this gets pounded by findnextdate, disabled diagnostics
+	//var tabi = ("%-" + ind.to_string() + "s").printf("");
+	//print("%sdmod: %d, %d\n", tabi, l, r);
 	if (l >= 0) { return (l % r); }
 	if (l >= -r) { return (l + r); }
 	return ((l % r) + r) % r;
 }
 
-// hsv to rgb function based on hsv-lab.r by Christopher Ross-Gill: http://www.rebol.org/view-script.r?script=hsv-lab.r
-int[] hsvtorgb (double[] c) {
-// hue = double 0.0 255.0
-// val = double 0.0 1.0
-// sat = double 0.0 1.0
-	double r = 0;
-	double g = 0;
-	double b = 0;
-	double h = c[0];
-	double s = c[1];
-	double v = c[2];
-    if (s == 0.0) {
-		r = v;
-		g = v;
-		b = v;
-	} else {
-		h = h / ((double) 60.0);
-		int i = ((int) h);
-		double f = h - ((double) i);
-		double p = v * (1 - s);
-		double q = v * (1 - (s * f));
-		double t = v * (1 - (s * (1 - f)));
-		switch (i) {
-			case 0: r = v; g = t; b = p; break;
-			case 1: r = q; g = v; b = p; break;
-			case 2: r = p; g = v; b = t; break;
-			case 3: r = p; g = q; b = v; break;
-			case 4: r = t; g = p; b = v; break;
-			default: r = v; g = p; b = q; break;
-		}
-	}
-	int[] o = { ((int) (r * 255.0)), ((int) (g * 255.0)), ((int) (b * 255.0)) };
-	return o;
-}
-
-struct nextdate {
-	public Date nxd;
-	public double amt;
-	public string grp;
-	public string cat;
-	public string dsc;
-	public int frm;
-	public string cco;
-	public string gco;
-}
-
 // check leapyear
-bool lymd(int y) {
+bool lymd(int y, int ind) {
+	// this gets pounded by findnextdate, disabled diagnostics
+	//var tabi = ("%-" + ind.to_string() + "s").printf("");
+	//print("%slymd: %d\n", tabi, y);
 // technique is from Rosetta Code, most languages. 
 	if ((y % 100) == 0 ) { 
 		return ((y % 400) == 0);
@@ -170,7 +41,10 @@ bool lymd(int y) {
 }
 
 // get weekday index
-int iwkd (DateWeekday wd) {
+int iwkd (DateWeekday wd, int ind) {
+	// this gets pounded by findnextdate, disabled diagnostics
+	//var tabi = ("%-" + ind.to_string() + "s").printf("");
+	//print("%siwkd...\n", tabi);
 	if (wd == MONDAY) { return 1; }
 	if (wd == TUESDAY) { return 2; }
 	if (wd == WEDNESDAY) { return 3; }
@@ -183,14 +57,18 @@ int iwkd (DateWeekday wd) {
 }
 
 // 
-string htmlcol (int r, int g, int b) {
-	 return ("#%02X%02X%02X".printf(r, g, b));
+string htmlcol (int r, int g, int b, int ind) {
+	var tabi = ("%-" + ind.to_string() + "s").printf("");
+	print("%shtmlcol: (%d, %d, %d)\n", tabi, r, g, b);
+	return ("#%02X%02X%02X".printf(r, g, b));
 }
 
 
 // forecast per item
-nextdate[] findnextdate (string[] dt, int ownr) {
-	print("\tfindnextdate started\n");
+nextdate[] findnextdate (string[] dt, int ownr, int ind) {
+	var tabi = ("%-" + ind.to_string() + "s").printf("");
+	print("%sfindnextdate started...\n", tabi);
+	var nind  = ind + 4;
 	int[] lastdayofmonth = {31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31};
 	var nt = new DateTime.now_local();
 	var ntd = nt.get_day_of_month();
@@ -224,7 +102,7 @@ nextdate[] findnextdate (string[] dt, int ownr) {
 
 // get last day of the month
 
-	var t = lymd(fye);
+	var t = lymd(fye,nind);
 	var md = lastdayofmonth[fmo - 1];
 	if (fmo == 2) { if (t) { md = 29; } }
 
@@ -241,14 +119,14 @@ nextdate[] findnextdate (string[] dt, int ownr) {
 		for (int x = 0; x < dif; x++) {
 			var dmo = (a.get_month() == fmo);
 			//if (ofm > 0) { dmo = ((a.get_month() - fmo) % ofm == 0); }
-			if (ofm > 0) { dmo = (dmod((a.get_month() - fmo), ofm) == 0); }
-			var ofmcalc = dmod((a.get_month() - fmo), ofm);
+			if (ofm > 0) { dmo = (dmod((a.get_month() - fmo), ofm, nind) == 0); }
+			var ofmcalc = dmod((a.get_month() - fmo), ofm, nind);
 			//print("dmo calc: (%d - %d) = %d\n", a.get_month(), fmo, (a.get_month() - fmo));
 			//print("dmo calc: ((%d - %d) mod %d) = %d\n", a.get_month(), fmo, ofm, ofmcalc);
 			if (dmo) {
 				var c = 0;
 				var mth = md;
-				t = lymd(a.get_year());
+				t = lymd(a.get_year(),nind);
 				md = lastdayofmonth[a.get_month() - 1];
 				if (a.get_month() == 2) { if (t) { md = 29; } }
 				var wdc = 0; // number of matching weekdays
@@ -262,7 +140,7 @@ nextdate[] findnextdate (string[] dt, int ownr) {
 				for (int e = 1; e <= md; e++) {
 					j.set_day((DateDay) e);
 					if (j.valid() == false) { print("invalid j date generated in weekday loop [%d] (%s):\nevery: %s\nnth: %s\nweekday: %s\nfromday: %s\nofmonth: %s\nfrommonth: %s\nfromyear: %s\n\n", ownr, dt[10], dt[0], dt[1], dt[2], dt[3], dt[4], dt[5], dt[6]); }
-					if (iwkd(j.get_weekday()) == wkd) { wdc = wdc + 1; }
+					if (iwkd(j.get_weekday(),nind) == wkd) { wdc = wdc + 1; }
 					if (e == mth) { cdc = cdc + 1; }
 				}
 				var cnth = int.max(int.min(nth,wdc),1);
@@ -276,7 +154,7 @@ nextdate[] findnextdate (string[] dt, int ownr) {
 					var cwi = -2;
 // is it looking for a weekday?
 					if (wkd > 0 && wkd < 8) {
-						if (iwkd(a.get_weekday()) == wkd) {
+						if (iwkd(a.get_weekday(),nind) == wkd) {
 							c = c + 1;  // current weekday match count
 							var rem = (md - d); // get remaining days of month
 // get the weekday
@@ -299,17 +177,17 @@ nextdate[] findnextdate (string[] dt, int ownr) {
 // we have a match
 					if (chk == cwi) {
 						var avd = d;
-						if (iwkd(a.get_weekday()) > 5) {
+						if (iwkd(a.get_weekday(),nind) > 5) {
 // get weekday before, after or closest to a weekend day
 							switch (wkd) {
-								case 8: avd = (int) (d + (((( (iwkd(a.get_weekday()) - 5) - 1) / 1.0) * 2.0) - 1.0)); break;
-								case 9: avd = d - (iwkd(a.get_weekday()) - 5); break;
-								case 10: avd = d + (3 - (iwkd(a.get_weekday()) - 5)); break;
+								case 8: avd = (int) (d + (((( (iwkd(a.get_weekday(),nind) - 5) - 1) / 1.0) * 2.0) - 1.0)); break;
+								case 9: avd = d - (iwkd(a.get_weekday(),nind) - 5); break;
+								case 10: avd = d + (3 - (iwkd(a.get_weekday(),nind) - 5)); break;
 								default: avd = d; break;
 							}
 							//print("\t\t\tfindnextdate d = %d\n",avd);
 // get nearest weekday if avd is out of bounds
-							if (avd < 1 || avd > md) { avd = d + (3 - (iwkd(a.get_weekday()) - 5)); }
+							if (avd < 1 || avd > md) { avd = d + (3 - (iwkd(a.get_weekday(),nind) - 5)); }
 // clamp it anyway, just in case...
 							avd = int.min(md,int.max(1,avd));
 						}
@@ -367,14 +245,14 @@ nextdate[] findnextdate (string[] dt, int ownr) {
 				if (a.compare(n) >= 0 && a.compare(qq) <= 0) {
 					if (wkd == 0 || wkd > 7) {
 						if ((x % (cnth * cofs)) == 0) {
-							if (iwkd(a.get_weekday()) > 5) {
+							if (iwkd(a.get_weekday(),nind) > 5) {
 								var d = (int) a.get_day();
 								var avd = d;
 // get weekday before, after or closest to a weekend as required
 								switch (wkd) {
-									case 8: avd = (int) (d + (((( (iwkd(a.get_weekday()) - 5) - 1) / 1.0) * 2.0) - 1.0)); break;
-									case 9: avd = d - (iwkd(a.get_weekday()) - 5); break;
-									case 10: avd = d + (3 - (iwkd(a.get_weekday()) - 5)); break;
+									case 8: avd = (int) (d + (((( (iwkd(a.get_weekday(),nind) - 5) - 1) / 1.0) * 2.0) - 1.0)); break;
+									case 9: avd = d - (iwkd(a.get_weekday(),nind) - 5); break;
+									case 10: avd = d + (3 - (iwkd(a.get_weekday(),nind) - 5)); break;
 									default: avd = d; break;
 								}
 								//print("\t\t\tavd after nearest weekday check is: %d\n",avd);
@@ -398,7 +276,7 @@ nextdate[] findnextdate (string[] dt, int ownr) {
 						}
 // get nth weekday
 					} else {
-						if (iwkd(a.get_weekday()) == wkd) {
+						if (iwkd(a.get_weekday(),nind) == wkd) {
 							c = c + 1;
 							if (((c - fdy) % (cnth * cofs)) == 0) {
 								//print("a.day: %d, a.month: %d, a.year: %d\n", ((int) a.get_day()), ((int) a.get_month()), ((int) a.get_year()));
@@ -435,12 +313,15 @@ nextdate[] findnextdate (string[] dt, int ownr) {
 			}
 		}
 	}
-	print("\tfindnextdate completed\n");
+	print("%sfindnextdate completed.\n",tabi);
 	return o;
 }
 
-void renderforecast (string[,] f, Gtk.ListBox w) {
-	print("renderforecast started...\n");
+void renderforecast (string[,] f, Gtk.ListBox w, int ind) {
+	var tabi = ("%-" + ind.to_string() + "s").printf("");
+	print("%srenderforecast started...\n", tabi);
+	var nind = ind + 4;
+	var tabni = ("%-" + nind.to_string() + "s").printf("");
 
 	// 0 = date
 	// 1 = description
@@ -456,6 +337,9 @@ void renderforecast (string[,] f, Gtk.ListBox w) {
 		if (f.length[1] == 9) {
 			int[] sls = {8,0,0,0,0};
 
+			print("%srenderforecast:\tforecasted.length[0] = %d\n", tabni, f.length[0]);
+			print("%srenderforecast:\tforecasted.length[1] = %d\n", tabni, f.length[1]);
+
 // get string lengths
 
 			for (var r = 0; r < f.length[0]; r++) {
@@ -467,41 +351,46 @@ void renderforecast (string[,] f, Gtk.ListBox w) {
 
 // render list
 
-			print("renderforecast:\tdat is OK.\n");
 			for (var r = 0; r < f.length[0]; r++) {
 				var row = w.get_row_at_index(r);
-				var rl = (Label) row.get_child();
-				string clr = f[r,7];
-				if (clr.strip() == "") { clr = textcolor(); }
-				rl.set_tooltip_text(f[r,8]);
-				var mqq = "".concat(
-					"<span color='", clr, "' font='monospace 12px'><b>",
-					f[r,0], " : ", 
-					("%-" + sls[3].to_string() + "s").printf(f[r,3]), " ",
-					("%-" + sls[2].to_string() + "s").printf(f[r,2]), " ",
-					("%-" + sls[1].to_string() + "s").printf(f[r,1]), " ",
-					" : ", f[r,5], "</b></span>"
-				);
-				//print("renderforecast:\tnew markup is is: %s\n", mqq);
-				rl.set_markup(mqq);
-				var g = new Gdk.RGBA();
-				g.parse(clr);
-				g.alpha = 0.1;
-				row.override_background_color(NORMAL, g);
-				g.parse(textcolor());
-				g.alpha = 0.25;
-				row.override_background_color(PRELIGHT, g);
-				g.alpha = 0.5;
-				row.override_background_color(SELECTED, g);
+				if (row != null) {
+					var rl = (Label) row.get_child();
+					string clr = f[r,7];
+					if (clr.strip() == "") { clr = textcolor(); }
+					rl.set_tooltip_text(f[r,8]);
+					var mqq = "".concat(
+						"<span color='", clr, "' font='monospace 12px'><b>",
+						f[r,0], " : ", 
+						("%-" + sls[3].to_string() + "s").printf(f[r,3]), " ",
+						("%-" + sls[2].to_string() + "s").printf(f[r,2]), " ",
+						("%-" + sls[1].to_string() + "s").printf(f[r,1]), " ",
+						" : ", f[r,5], "</b></span>"
+					);
+					//print("renderforecast:\tnew markup is is: %s\n", mqq);
+					rl.set_markup(mqq);
+					var g = new Gdk.RGBA();
+					g.parse(clr);
+					g.alpha = 0.1;
+					row.override_background_color(NORMAL, g);
+					g.parse(textcolor());
+					g.alpha = 0.25;
+					row.override_background_color(PRELIGHT, g);
+					g.alpha = 0.5;
+					row.override_background_color(SELECTED, g);
+				} else {
+					print("%srenderforecast: forecast list is out of sync with forecasted data at row: %d\n", tabni, r);
+				}
 			}
 		}
 	}
-	print("renderforecast completed.\n");
+	print("%srenderforecast completed.\n",tabi);
 }
 
 // forecast everything in dat and render it
-string[,] forecast (string[,] d, Gtk.ListBox w, bool iso, int srow) {
-	print("forecast started\n");
+string[,] forecast (string[,] d, Gtk.ListBox w, bool iso, int srow, int ind) {
+	var tabi = ("%-" + ind.to_string() + "s").printf("");
+	print("%sforecast started...\n",tabi);
+	var nind = ind + 4;
 
 	string[] rendered = {};
 
@@ -515,13 +404,13 @@ string[,] forecast (string[,] d, Gtk.ListBox w, bool iso, int srow) {
 	if (iso) {
 		string[] datrow = {};
 		for (var g = 0; g < 13; g++) { datrow += d[srow,g]; }
-		var rfc = findnextdate (datrow, srow);
+		var rfc = findnextdate (datrow, srow, nind);
 		for (var f = 0; f < rfc.length; f++ ) { fdat += rfc[f]; }
 	} else {
 		for (var u = 0; u < d.length[0]; u++) {
 			string[] datrow = {};
 			for (var g = 0; g < 13; g++) { datrow += d[u,g]; }
-			var rfc = findnextdate (datrow, u);
+			var rfc = findnextdate (datrow, u, nind);
 			for (var f = 0; f < rfc.length; f++ ) { fdat += rfc[f]; }
 		}
 	}
@@ -575,18 +464,17 @@ string[,] forecast (string[,] d, Gtk.ListBox w, bool iso, int srow) {
 		}
 	}
 	w.show_all();
-	renderforecast(fcdat,w);
-	print("forecast done\n");
+	renderforecast(fcdat,w, nind);
+	print("%sforecast done\n",tabi);
 	return fcdat;
 }
 
 //paint setup list
-void rendersetuplist(string[,] d, Gtk.ListBox b) {
-// paints all rows in setuplist
-// takes group color, applies to text,
-// then tints the row using same color @ 0.25 alpha
-// categroy color not used in lists as it gets too messy
-	print("\trendersetuplist started\n");
+void rendersetuplist(string[,] d, Gtk.ListBox b, int ind) {
+	var tabi = ("%-" + ind.to_string() + "s").printf("");
+	print("%srendersetuplist started...\n",tabi);
+	//var nind = ind + 4;
+
 	var bs = b.get_selected_row();
 	var bsi = 0;
 	if (bs != null) { bsi = bs.get_index(); }
@@ -609,12 +497,13 @@ void rendersetuplist(string[,] d, Gtk.ListBox b) {
 		g.alpha = 1.0;
 		row.override_background_color(SELECTED, g);
 	}
-	print("\trendersetuplist completed\n");
+	print("%srendersetuplist completed.\n", tabi);
 }
 
 // gather unique group/category names
-string[] getchoicelist(string[,] d, int idx) {
-	print("\t\tgetchoicelist started\n");
+string[] getchoicelist(string[,] d, int idx, int ind) {
+	var tabi = ("%-" + ind.to_string() + "s").printf("");
+	print("%sgetchoicelist started\n", tabi);
 	var whatupdate = doupdate;
 	doupdate = false;
 	var doit = true;
@@ -665,13 +554,16 @@ string[] getchoicelist(string[,] d, int idx) {
 	//doupdate = true;
 	//print("\n");
 	doupdate = whatupdate;
-	print("\t\tgetchoicelist completed\n");
+	print("%sgetchoicelist completed.\n", tabi);
 	return o;
 }
 
-void adjustgroupcolor (string[,] d, string[,] f, int e, Entry h, double r, double g, double b, bool x) {
+void adjustgroupcolor (string[,] d, string[,] f, int e, Entry h, double r, double g, double b, bool x, int ind) {
+	var tabi = ("%-" + ind.to_string() + "s").printf("");
+	print("%sadjustgroupcolor started...\n",tabi);
+	var nind = ind + 4;
 // data, setuplist, hex-entry, red slider val, green slider val, blue slider val, do hex-entry
-	string hx = htmlcol (((int) r), ((int) g), ((int) b));
+	string hx = htmlcol (((int) r), ((int) g), ((int) b), nind);
 	if (x) { hx = h.text; }
 // prevent overwriting hex field if editing hex field
 	if (x == false) { doupdate = false; h.text = hx; doupdate = true; }
@@ -694,8 +586,10 @@ void adjustgroupcolor (string[,] d, string[,] f, int e, Entry h, double r, doubl
 }
 
 // select a row, update params accordingly
-void selectarow (string[,] dat, Gtk.ListBox b, Gtk.FlowBox fb, Gtk.ComboBoxText evrc, Gtk.ComboBoxText nthc, Gtk.ComboBoxText wkdc, Gtk.ComboBoxText fdyc, Gtk.ComboBoxText mthc, Gtk.ComboBoxText fmoc, Gtk.Entry dsct, Gtk.SpinButton fyes, Gtk.SpinButton amts, Gtk.ComboBoxText grpc, Gtk.ComboBoxText catc, Gtk.Button gcb) {
-	print("\tselectarow started\n");
+void selectarow (string[,] dat, Gtk.ListBox b, Gtk.FlowBox fb, Gtk.ComboBoxText evrc, Gtk.ComboBoxText nthc, Gtk.ComboBoxText wkdc, Gtk.ComboBoxText fdyc, Gtk.ComboBoxText mthc, Gtk.ComboBoxText fmoc, Gtk.Entry dsct, Gtk.SpinButton fyes, Gtk.SpinButton amts, Gtk.ComboBoxText grpc, Gtk.ComboBoxText catc, Gtk.Button gcb, int ind) {
+	var tabi = ("%-" + ind.to_string() + "s").printf("");
+	print("%sselectarow started...\n",tabi);
+	var nind = ind + 4;
 	doupdate = false;
 	var row = b.get_selected_row();
 	var i = 0;
@@ -746,7 +640,7 @@ void selectarow (string[,] dat, Gtk.ListBox b, Gtk.FlowBox fb, Gtk.ComboBoxText 
 	}
 // there is no comboboxtext.itmes array, so hosing & rebuilding it
 // comboboxtext.get_model()[x][0] doesn't work, something about void call in an expression...
-	string[] cc = getchoicelist(dat, 8);
+	string[] cc = getchoicelist(dat, 8, nind);
 	//print("\tselected row data is: %s %s %s\n", dat[i,8], dat[i,9], dat[i,10]);
 	catc.remove_all();
 	for (var j = 0; j < cc.length; j++) {
@@ -754,7 +648,7 @@ void selectarow (string[,] dat, Gtk.ListBox b, Gtk.FlowBox fb, Gtk.ComboBoxText 
 		if (cc[j] == dat[i,8]) { catc.set_active(j); }
 	}
 // there is no comboboxtext.itmes array, so hosing & rebuilding it
-	string[] gg = getchoicelist(dat, 9);
+	string[] gg = getchoicelist(dat, 9, nind);
 	//print("\tselected row data is: %s %s %s\n", dat[i,8], dat[i,9], dat[i,10]);
 	grpc.remove_all();
 	for (var k = 0; k < gg.length; k++) {
@@ -773,27 +667,31 @@ void selectarow (string[,] dat, Gtk.ListBox b, Gtk.FlowBox fb, Gtk.ComboBoxText 
 	g.parse(clr);
 	gcb.override_background_color(NORMAL, g);
 // set foreground text
-	rendersetuplist(dat,b);
+	rendersetuplist(dat,b, nind);
 	doupdate = true;
-	print("\tselectarow completed\n");
+	print("%sselectarow completed.\n", tabi);
 }
 
-string moi (int i) {
+string moi (int i, int ind) {
+	// this gets pounded by graph draw, disabling diagnostics
+	//var tabi = ("%-" + ind.to_string() + "s").printf("");
+	//print("%smoi: %d\n",tabi, i);
 	i = int.min(int.max(i,0),11);
 	string[] mo = {"JAN", "FEB", "MAR", "APR", "MAY", "JUN", "JUL", "AUG", "SEP", "OCT", "NOV", "DEC"};
 	return mo[i];
 }
 
-//    gggggg uuuu  uu iiiiiiii
-//  gggg     uuuu  uu   iiii
-//  gggg  gg uuuu  uu   iiii
-//  gggg  gg uuuu  uu   iiii
-//    gggggg   uuuuuu iiiiiiii
+//    GGGGGGG  UUUU   UU  IIIIIIII
+//  GGGG       UUUU   UU    IIII
+//  GGGG   GG  UUUU   UU    IIII
+//  GGGG   GG  UUUU   UU    IIII
+//    GGGGGG     UUUUUUU  IIIIIIII
 
 public class FTW : Window {
 	private Notebook notebook;
 	private ListBox setuplist;
 	private Popover spop;
+	private Popover lpop;
 	private Popover gpop;
 	private Gdk.ScrollDirection scrolldir;
 	private int selectedtrns;
@@ -813,6 +711,7 @@ public class FTW : Window {
 	private bool graphpan;
 	private bool graphscroll;
 	private bool graphpick;
+	private int ind;
 	string[,] dat = {
 		{"1","1","7","0","1","7","0","-5.00","grocery","home","every sunday of every month starting from this september","",""},
 		{"2","2","1","0","1","0","0","-10.0","train","work","every 2nd and 4th monday of every month starting this month","",""},
@@ -834,6 +733,7 @@ public class FTW : Window {
 	private int selectedrule;
 
 	public FTW() {
+		ind = 4;
 		barh = 10;
 		oldgraphoffset = {0.0,0.0};
 		oldgraphsize = {690.0,690.0};
@@ -852,8 +752,6 @@ public class FTW : Window {
 		int wy = 100;
 		this.get_size(out wx, out wy);
 		print("window size is: %dx%d\n",wx,wy);
-// access denied for dpi
-		//print("screen dpi is: %d\n",Gdk.Screen.get_resolution());
 
 // add widgets
 
@@ -867,35 +765,43 @@ public class FTW : Window {
 		setuplist = new ListBox();
 		notebook.set_tab_pos(BOTTOM);
 		notebook.set_show_border(false);
-		Gtk.ActionBar abar = new ActionBar();
 
 // load menu
+//
+// [load/save-it] <- btn
+//       |
+//     [pop] <------ popmenu
+//       |
+//    [popbox] <---- menu container
+//
 
-		Gtk.Button loadit = new Button();
-		loadit.set_label("load");
-		spop = new Gtk.Popover (loadit);
-		Gtk.Box spopbox = new Gtk.Box (VERTICAL,2);
-		spop.add(spopbox);
+		var save_icon = new Gtk.Image.from_icon_name ("document-save", IconSize.SMALL_TOOLBAR);
+		var load_icon = new Gtk.Image.from_icon_name ("document-open", IconSize.SMALL_TOOLBAR);
+		//Gtk.Button loadit = new Button.with_label("load");
+		//Gtk.Button saveit = new Button.with_label("save");
+		Gtk.ToolButton loadit = new Gtk.ToolButton (load_icon, "");
+		Gtk.ToolButton saveit = new Gtk.ToolButton (save_icon, "");
+		Gtk.Button savebtn = new Button.with_label("save");
 
-// scenario name
+		lpop = new Gtk.Popover (loadit);
+		spop = new Gtk.Popover (saveit);
+
+		Gtk.Box spopbox = new Gtk.Box(VERTICAL,10);
+		Gtk.Box lpopbox = new Gtk.Box(VERTICAL,5);
+		spopbox.margin = 10;
+		lpopbox.margin = 10;
 
 		Gtk.Entry scene = new Entry();
 		scene.text = "default";
 
-// save scenario
+		spopbox.add(scene);
+		spopbox.add(savebtn);
 
-		Gtk.Button saveit = new Button.with_label("save");
-// button needs a container to set its size :(
-		//saveit.width = 200;
+		spop.add(spopbox);
+		lpop.add(lpopbox);
 
-// populate action bar
-
-// hexpand & fill seem to be busted for actionbar, was fixed for headerbar though
-// leaving scene field on the left side for now
-
-		abar.pack_end(loadit);
-		abar.pack_start(saveit);
-		abar.pack_start(scene);
+		bar.pack_start(loadit);
+		bar.pack_end(saveit);
 
 // setup page
 
@@ -992,7 +898,7 @@ public class FTW : Window {
 
 		gpop = new Gtk.Popover (grpcolb);
 		Gtk.Box cpbox = new Gtk.Box (VERTICAL,2);
-		cpbox.set_size_request (100,10);
+		cpbox.set_size_request (200,10);
 		gpop.add(cpbox);
 		Gtk.Scale rrr = new Scale.with_range(HORIZONTAL, 0, 255, 100);
 		rrr.set_value(26);
@@ -1061,7 +967,6 @@ public class FTW : Window {
 
 		uig.attach(notebook, 0, 0, 1, 1);
 		uig.attach(grid, 0, 1, 1, 1);
-		uig.attach(abar, 0, 2, 1, 1);
 		this.add(uig);
 
 // foecast page
@@ -1206,7 +1111,7 @@ public class FTW : Window {
 					ctx.select_font_face("Monospace",Cairo.FontSlant.NORMAL,Cairo.FontWeight.BOLD);
 					ctx.set_font_size (14);
 					ctx.move_to (5, (stackmo+18));
-					var motx = moi(mox[i]);
+					var motx = moi(mox[i], ind);
 					ctx.show_text(motx);
 					stackmo += mol[i];
 				}
@@ -1284,7 +1189,7 @@ public class FTW : Window {
 				if (selectedtrns != 99999) {
 					// now.format ("%d/%m/%Y")
 					string[] jj = (forecasted[selectedtrns,0]).split(" ");
-					string xinf = "".concat(jj[2], " ", moi((int.parse(jj[1]) - 1)), " 20", jj[0], " : ", forecasted[selectedtrns,5]);
+					string xinf = "".concat(jj[2], " ", moi((int.parse(jj[1]) - 1), ind), " 20", jj[0], " : ", forecasted[selectedtrns,5]);
 					Cairo.TextExtents extents;
 					ctx.text_extents (xinf, out extents);
 					var ibx = extents.width + 40;
@@ -1327,7 +1232,7 @@ public class FTW : Window {
 					var row = setuplist.get_row_at_index(selectedrule);
 					if (row != null) {
 						doupdate = false; setuplist.select_row(row); doupdate = true;
-						selectarow (dat, setuplist, flowbox, evrcombo, nthcombo, wkdcombo, fdycombo, mthcombo, fmocombo, dsc, fye, amtf, grpcombo, catcombo, grpcolb);
+						selectarow (dat, setuplist, flowbox, evrcombo, nthcombo, wkdcombo, fdycombo, mthcombo, fmocombo, dsc, fye, amtf, grpcombo, catcombo, grpcolb, ind);
 					}
 				}
 
@@ -1361,6 +1266,7 @@ public class FTW : Window {
 		graphimg.add_events (Gdk.EventMask.POINTER_MOTION_MASK);
 		graphimg.add_events (Gdk.EventMask.SCROLL_MASK);
 		graphimg.button_press_event.connect ((event) => {
+			ind = 4;
 			//print("graphimg.button_press_event\n");
 			mousedown = {event.x, event.y};
 			graphpick = (event.button == 1);
@@ -1372,12 +1278,13 @@ public class FTW : Window {
 			}
 // this doesn't work
 //			graphscroll = (event.button == 4 || event.button == 5);
-			print("graphimg.button_press_event.connect: event.button = %u\n", event.button);
+			//print("graphimg.button_press_event.connect: event.button = %u\n", event.button);
 			//print("graphimg.button_press_event is redrawing the graph...\n");
 			//if (graphpick) { graphimg.queue_draw(); }
 			return true;
 		});
 		graphimg.motion_notify_event.connect ((event) => {
+			ind = 4;
 			if (graphzoom == false && graphpan == false && graphpick == false) { mousedown = {event.x, event.y}; }
 			//print("we're hoverin @ %f x %f\n", mousemove[0], mousemove[1]);
 			mousemove = {event.x, event.y};
@@ -1389,6 +1296,7 @@ public class FTW : Window {
 			return true;
 		});
 		graphimg.scroll_event.connect ((event) => {
+				ind = 4;
 			//if (graphscroll) {
 				scrolldir = UP;
 				if (event.scroll.direction == scrolldir) {
@@ -1415,6 +1323,7 @@ public class FTW : Window {
 // reset/update stuff on mouse release
 
 		graphimg.button_release_event.connect ((event) => {
+			ind = 4;
 			print("graphimg.button_release_event\n");
 			graphzoom = false;
 			graphpan = false;
@@ -1443,7 +1352,7 @@ public class FTW : Window {
 		mousedown[1] = 0;
 		var row = setuplist.get_row_at_index(0);
 		selectedrule = 0;
-		selectarow (dat, setuplist, flowbox, evrcombo, nthcombo, wkdcombo, fdycombo, mthcombo, fmocombo, dsc, fye, amtf, grpcombo, catcombo, grpcolb);
+		selectarow (dat, setuplist, flowbox, evrcombo, nthcombo, wkdcombo, fdycombo, mthcombo, fmocombo, dsc, fye, amtf, grpcombo, catcombo, grpcolb, ind);
 		doupdate = true;
 
 //  EEEEEEEE VVVV  VV EEEEEEEE NNNNNN   TTTTTTTT   SSSSSS
@@ -1457,21 +1366,32 @@ public class FTW : Window {
 		notebook.switch_page.connect ((page, page_num) => {
 			var s = setuplist.get_selected_row();
 			var r = 0;
-			if (s != null) { 
+			if (s != null) {
+				var pix = ((int) page_num);
+				print("notebook.switch_page.connect:\tswitching to tab: %d\n", pix);
+				ind = 4; 
 				r = s.get_index();
-				forecasted = forecast(dat,forecastlistbox, iso.get_active(), r);
-				print("notebook.switch_page.connect: forecasted[0,8] = %s\n", forecasted[r,8]);
-				graphimg.queue_draw ();
+				if (pix == 0) {
+					rendersetuplist(dat, setuplist, ind);
+				}
+				if (pix == 1) {
+					forecasted = forecast(dat, forecastlistbox, iso.get_active(), r, ind);
+				}
+				if (pix == 2) {
+					renderforecast(forecasted, forecastlistbox, ind);
+					graphimg.queue_draw ();
+				}
 			}
 		});
 
 // setup list item select action
 
 		setuplist.row_selected.connect ((row) => {
-			print("selecting a row...\n");
 			if (doupdate) {
+				print("setuplist.row_selected.connect:\tselecting row: %d\n", row.get_index());
+				ind = 4;
 				selectedrule = row.get_index();
-				selectarow (dat, setuplist, flowbox, evrcombo, nthcombo, wkdcombo, fdycombo, mthcombo, fmocombo, dsc, fye, amtf, grpcombo, catcombo, grpcolb);
+				selectarow (dat, setuplist, flowbox, evrcombo, nthcombo, wkdcombo, fdycombo, mthcombo, fmocombo, dsc, fye, amtf, grpcombo, catcombo, grpcolb, ind);
 			}
 		});
 
@@ -1479,9 +1399,11 @@ public class FTW : Window {
 
 		forecastlistbox.row_activated.connect ((row) => {
 			if (doupdate) {
+				ind = 4;
 				var fs = forecastlistbox.get_selected_row();
 				var fr = 0;
 				if (fs != null) {
+					print("forecastlistbox.row_activated.connect:\tselecting row: %d\n", row.get_index());
 					fr = fs.get_index();
 					var ll = (Label) row.get_child();
 					//print("selected forecast row label tooltip: %s\n", ll.tooltip_text);
@@ -1490,7 +1412,7 @@ public class FTW : Window {
 						selectedrule = own;
 						row = setuplist.get_row_at_index(own);
 						doupdate = false; setuplist.select_row(row); doupdate = true;
-						selectarow (dat, setuplist, flowbox, evrcombo, nthcombo, wkdcombo, fdycombo, mthcombo, fmocombo, dsc, fye, amtf, grpcombo, catcombo, grpcolb);
+						selectarow (dat, setuplist, flowbox, evrcombo, nthcombo, wkdcombo, fdycombo, mthcombo, fmocombo, dsc, fye, amtf, grpcombo, catcombo, grpcolb, ind);
 					}
 				}
 			}
@@ -1500,14 +1422,15 @@ public class FTW : Window {
 
 		evrcombo.changed.connect(() => {
 			if (doupdate) {
+				ind = 4;
 				var n = evrcombo.get_active();
 				var s = setuplist.get_selected_row();
 				var r = 0;
 				if (s != null) { 
+					print("evrcombo.changed.connect:\tselecting item: %d\n", n);
 					r = s.get_index(); 
 					dat[r,0] = n.to_string();
-					forecasted = forecast(dat,forecastlistbox, iso.get_active(), r);
-					print("evrcombo.changed.connect is redrawing the graph...\n");
+					forecasted = forecast(dat, forecastlistbox, iso.get_active(), r, ind);
 					graphimg.queue_draw ();
 					//print ( "evrcombo.changed: dat[%d,%d] = %s\n", r, 0, dat[r,0]);
 				}
@@ -1515,14 +1438,15 @@ public class FTW : Window {
 		});
 		nthcombo.changed.connect(() => {
 			if (doupdate) {
+				ind = 4;
 				var n = nthcombo.get_active();
 				var s = setuplist.get_selected_row();
 				var r = 0;
 				if (s != null) { 
+					print("nthcombo.changed.connect:\tselecting item: %d\n", n);
 					r = s.get_index();
 					dat[r,1] = n.to_string();
-					forecasted = forecast(dat,forecastlistbox, iso.get_active(), r);
-					print("nthcombo.changed.connect is redrawing the graph...\n");
+					forecasted = forecast(dat, forecastlistbox, iso.get_active(), r, ind);
 					graphimg.queue_draw ();
 					//print ( "dat[%d,%d] = %s\n", r, 0, dat[r,1]);
 				}
@@ -1530,16 +1454,16 @@ public class FTW : Window {
 		});
 		wkdcombo.changed.connect(() => {
 			if (doupdate) {
+				ind = 4;
 				var n = wkdcombo.get_active();
 				var s = setuplist.get_selected_row();
 				var r = 0;
 				if (s != null) { 
+					print("wkdcombo.changed.connect:\tselecting item: %d\n", n);
 					r = s.get_index();
 					dat[r,2] = n.to_string();
-					//print ( "wkdcombo.changed: dat[%d,%d] = %s\n", r, 0, dat[r,2]);
 					var ffs = int.parse(dat[r,2]);
 					if (ffs > 7) {
-						//print("weekday rule selected, re-arrainging flowbox...\n");
 						if (flowbox.get_child_at_index(1).get_child() == nthcombo) {
 							flowbox.get_child_at_index(1).remove(nthcombo);
 							flowbox.get_child_at_index(2).remove(wkdcombo);
@@ -1554,22 +1478,22 @@ public class FTW : Window {
 							flowbox.get_child_at_index(2).add(wkdcombo);
 						}
 					}
-					forecasted = forecast(dat,forecastlistbox, iso.get_active(), r);
-					print("wkdcombo.changed.connect is redrawing the graph...\n");
+					forecasted = forecast(dat,forecastlistbox, iso.get_active(), r, ind);
 					graphimg.queue_draw ();
 				}
 			}
 		});
 		fdycombo.changed.connect(() => {
 			if (doupdate) {
+				ind = 4;
 				var n = fdycombo.get_active();
 				var s = setuplist.get_selected_row();
 				var r = 0;
 				if (s != null) { 
+					print("fdycombo.changed.connect:\tselecting item: %d\n", n);
 					r = s.get_index();
 					dat[r,3] = n.to_string();
-					forecasted = forecast(dat,forecastlistbox, iso.get_active(), r);
-					print("fdycombo.changed.connect is redrawing the graph...\n");
+					forecasted = forecast(dat, forecastlistbox, iso.get_active(), r, ind);
 					graphimg.queue_draw ();
 					//print ( "dat[%d,%d] = %s\n", r, 0, dat[r,3]);
 				}
@@ -1577,10 +1501,12 @@ public class FTW : Window {
 		});
 		mthcombo.changed.connect(() => {
 			if (doupdate) {
+				ind = 4;
 				var n = mthcombo.get_active();
 				var s = setuplist.get_selected_row();
 				var r = 0;
 				if (s != null) { 
+					print("mthcombo.changed.connect:\tselecting item: %d\n", n);
 					r = s.get_index();
 					dat[r,4] = n.to_string();
 					int ffs = int.parse(dat[r,5]);
@@ -1594,8 +1520,7 @@ public class FTW : Window {
 					}
 					fmocombo.set_active(ffs);
 					doupdate = true;
-					forecasted = forecast(dat,forecastlistbox, iso.get_active(), r);
-					print("mthcombo.changed.connect is redrawing the graph...\n");
+					forecasted = forecast(dat, forecastlistbox, iso.get_active(), r, ind);
 					graphimg.queue_draw ();
 					//print ( "dat[%d,%d] = %s\n", r, 0, dat[r,4]);
 				}
@@ -1603,14 +1528,15 @@ public class FTW : Window {
 		});
 		fmocombo.changed.connect(() => {
 			if (doupdate) {
+				ind = 4;
 				var n = fmocombo.get_active();
 				var s = setuplist.get_selected_row();
 				var r = 0;
 				if (s != null) {
+					print("fmocombo.changed.connect:\tselecting item: %d\n", n);
 					r = s.get_index();
 					dat[r,5] = n.to_string();
-					forecasted = forecast(dat,forecastlistbox, iso.get_active(), r);
-					print("fmocombo.changed.connect is redrawing the graph...\n");
+					forecasted = forecast(dat, forecastlistbox, iso.get_active(), r, ind);
 					graphimg.queue_draw ();
 					//print ( "dat[%d,%d] = %s\n", r, 0, dat[r,5]);
 				}
@@ -1618,62 +1544,70 @@ public class FTW : Window {
 		});
 		fye.changed.connect(() => {
 			if (doupdate) {
+				ind = 4;
 				var s = setuplist.get_selected_row();
 				var r = 0;
 				if (s != null) { 
+					var v = fye.get_value();
+					print("fye.changed.connect:\tchanging value to: %f\n", v);
 					r = s.get_index();
-					if (fye.get_value() == ((int) (GLib.get_real_time() / 31557600000000) + 1970)) {
+					if (v == ((int) (GLib.get_real_time() / 31557600000000) + 1970)) {
 						dat[r,6] = "0";
 					} else {
-						dat[r,6] = ((string) ("%lf").printf(fye.get_value()));
+						dat[r,6] = ((string) ("%lf").printf(v));
 					}
-					forecasted = forecast(dat,forecastlistbox, iso.get_active(), r);
-					print("fye.changed.connect is redrawing the graph...\n");
+					forecasted = forecast(dat, forecastlistbox, iso.get_active(), r, ind);
 					graphimg.queue_draw ();
 				}
 			}
 		});
 		grpcombo.changed.connect(() => {
 			if (doupdate) {
+				ind = 4;
 				var n = grpcombo.get_active_text();
 				var s = setuplist.get_selected_row();
 				var r = 0;
-				if (s != null) { 
+				if (s != null) {
+					print("grpcombo.changed.connect:\tselecting item: %s\n", n);
 					r = s.get_index();
 					dat[r,9] = n;
-					forecasted = forecast(dat,forecastlistbox, iso.get_active(), r);
+					forecasted = forecast(dat, forecastlistbox, iso.get_active(), r, ind);
 				}
 			}
 		});
 		catcombo.changed.connect(() => {
 			if (doupdate) {
+				ind = 4;
 				var n = catcombo.get_active_text();
 				var s = setuplist.get_selected_row();
 				var r = 0;
-				if (s != null) { 
+				if (s != null) {
+					print("catcombo.changed.connect:\tselecting item: %s\n", n);
 					r = s.get_index();
 					dat[r,8] = n;
-					forecasted = forecast(dat,forecastlistbox, iso.get_active(), r);
+					forecasted = forecast(dat, forecastlistbox, iso.get_active(), r, ind);
 				}
 			}
 		});
 		ee = (Entry) catcombo.get_child();
 		ee.activate.connect(() => {
 			if (doupdate) {
+				ind = 4;
 				var n = ee.text;
 				var s = setuplist.get_selected_row();
 				var r = 0;
-				if (s != null) { 
+				if (s != null) {
+					print("ee.activate.connect:\tselecting item: %s\n", n);
 					r = s.get_index();
 					dat[r,8] = n;
-					string[] cc = getchoicelist(dat,8);
+					string[] cc = getchoicelist(dat,8, ind);
 					catcombo.remove_all();
 					for (var j = 0; j < cc.length; j++) {
 						catcombo.append_text(cc[j]);
 						if (cc[j] == n) { r = j; }
 					}
 					catcombo.set_active(r);
-					forecasted = forecast(dat,forecastlistbox, iso.get_active(), r);
+					forecasted = forecast(dat, forecastlistbox, iso.get_active(), r, ind);
 					//print("category text entered: %s\n", ee.text );
 					doupdate = true;
 				}
@@ -1682,62 +1616,69 @@ public class FTW : Window {
 		vv = (Entry) grpcombo.get_child();
 		vv.activate.connect(() => {
 			if (doupdate) {
+				ind = 4;
 				var n = vv.text;
 				var s = setuplist.get_selected_row();
 				var r = 0;
-				if (s != null) { 
+				if (s != null) {
+					print("vv.activate.connect:\tselecting item: %s\n", n);
 					r = s.get_index();
 					dat[r,9] = n;
-					string[] cc = getchoicelist(dat,9);
+					string[] cc = getchoicelist(dat,9, ind);
 					grpcombo.remove_all();
 					for (var j = 0; j < cc.length; j++) {
 						grpcombo.append_text(cc[j]);
 						if (cc[j] == n) { r = j; }
 					}
 					grpcombo.set_active(r);
-					forecasted = forecast(dat,forecastlistbox, iso.get_active(), r);
+					forecasted = forecast(dat, forecastlistbox, iso.get_active(), r, ind);
 					doupdate = true;
 				}
 			}
 		});
 		amtf.value_changed.connect(() => {
 			if (doupdate) {
+				ind = 4;
 				var s = setuplist.get_selected_row();
 				var r = 0;
 				if (s != null) { r = s.get_index(); }
+				print("amtf.value_changed.connect:\tchanging value to: %f\n", amtf.get_value());
 				dat[r,7] =((string) ("%.2lf").printf(amtf.get_value()));;
-				forecasted = forecast(dat,forecastlistbox, iso.get_active(), r);
+				forecasted = forecast(dat, forecastlistbox, iso.get_active(), r, ind);
 				print("amtf.changed.connect is redrawing the graph...\n");
 				graphimg.queue_draw ();
 			}
 		});
 		iso.toggled.connect(() => {
 			if (doupdate) {
+				ind = 4;
 				var s = setuplist.get_selected_row();
 				var r = 0;
-				if (s != null) { 
+				if (s != null) {
+					print("iso.toggled.connect:\ttoggling isolate...\n");
 					r = s.get_index();
-					forecasted = forecast(dat,forecastlistbox, iso.get_active(), r);
+					forecasted = forecast(dat, forecastlistbox, iso.get_active(), r, ind);
 					print("iso.toggled.connect is redrawing the graph...\n");
 					graphimg.queue_draw ();
 				}
 			}
 		});
-
 		dsc.changed.connect(() => {
 			if (doupdate) {
+				ind = 4;
 				if (dsc.text != null) {
 					if (dsc.text.strip() != "") {
 						var s = setuplist.get_selected_row();
 						var r = 0;
 						if (s != null) {
+							print("dsc.changed.connect:\tchanging text to: %s\n", dsc.text);
 							r = s.get_index();
 							dat[r,10] = dsc.text;
 							var l = (Label) s.get_child();
 							var mq = "".concat("<span color='", rowcolor(), "' font='monospace 16px'><b>", dat[r,10], "</b></span>");
 							doupdate = false;
 							l.set_markup(mq);
-							forecasted = forecast(dat,forecastlistbox, iso.get_active(), r);
+							forecasted = forecast(dat, forecastlistbox, iso.get_active(), r, ind);
 							doupdate = true;
 						}
 					}
@@ -1747,7 +1688,8 @@ public class FTW : Window {
 		grpcolb.button_press_event.connect(() =>  {
 			var s = setuplist.get_selected_row();
 			var r = 0;
-			if (s != null) { 
+			if (s != null) {
+				ind = 4;
 				r = s.get_index();
 				string h = dat[r,12];
 				if (h.strip() == "") { h = textcolor(); print("group color data not found: %s", dat[r,12]); }
@@ -1767,20 +1709,22 @@ public class FTW : Window {
 		});
 		rrr.adjustment.value_changed.connect(() => {
 			if (doupdate) {
+				ind = 4;
 				var s = setuplist.get_selected_row();
 				var r = 0;
 				if (s != null) {
 					doupdate = false;
+					print("rrr.adjustment.value_changed.connect:\tchanging value to: %f\n", rrr.adjustment.value);
 					r = s.get_index();
-					adjustgroupcolor(dat, forecasted, r, hhh, rrr.adjustment.value, ggg.adjustment.value, bbb.adjustment.value, false);
+					adjustgroupcolor(dat, forecasted, r, hhh, rrr.adjustment.value, ggg.adjustment.value, bbb.adjustment.value, false, ind);
 					if (notebook.get_current_page() == 0) {
-						rendersetuplist(dat, setuplist);
+						rendersetuplist(dat, setuplist, ind);
 					}
 					if (notebook.get_current_page() == 1) {
-						renderforecast(forecasted, forecastlistbox);
+						renderforecast(forecasted, forecastlistbox, ind);
 					}
 					if (notebook.get_current_page() == 2) {
-						renderforecast(forecasted, forecastlistbox);
+						renderforecast(forecasted, forecastlistbox, ind);
 						graphimg.queue_draw ();
 					}
 					doupdate = true;
@@ -1789,20 +1733,22 @@ public class FTW : Window {
 		});
 		ggg.adjustment.value_changed.connect(() => {
 			if (doupdate) {
+				ind = 4;
 				var s = setuplist.get_selected_row();
 				var r = 0;
 				if (s != null) {
 					doupdate = false;
 					r = s.get_index();
-					adjustgroupcolor(dat, forecasted, r, hhh, rrr.adjustment.value, ggg.adjustment.value, bbb.adjustment.value, false);
+					print("ggg.adjustment.value_changed.connect:\tchanging value to: %f\n", ggg.adjustment.value);
+					adjustgroupcolor(dat, forecasted, r, hhh, rrr.adjustment.value, ggg.adjustment.value, bbb.adjustment.value, false, ind);
 					if (notebook.get_current_page() == 0) {
-						rendersetuplist(dat, setuplist);
+						rendersetuplist(dat, setuplist, ind);
 					}
 					if (notebook.get_current_page() == 1) {
-						renderforecast(forecasted, forecastlistbox);
+						renderforecast(forecasted, forecastlistbox, ind);
 					}
 					if (notebook.get_current_page() == 2) {
-						renderforecast(forecasted, forecastlistbox);
+						renderforecast(forecasted, forecastlistbox, ind);
 						graphimg.queue_draw ();
 					}
 					doupdate = true;
@@ -1811,20 +1757,22 @@ public class FTW : Window {
 		});
 		bbb.adjustment.value_changed.connect(() => {
 			if (doupdate) {
+				ind = 4;
 				var s = setuplist.get_selected_row();
 				var r = 0;
 				if (s != null) {
 					doupdate = false;
+					print("bbb.adjustment.value_changed.connect:\tchanging value to: %f\n", bbb.adjustment.value);
 					r = s.get_index();
-					adjustgroupcolor(dat, forecasted, r, hhh, rrr.adjustment.value, ggg.adjustment.value, bbb.adjustment.value, false);
+					adjustgroupcolor(dat, forecasted, r, hhh, rrr.adjustment.value, ggg.adjustment.value, bbb.adjustment.value, false, ind);
 					if (notebook.get_current_page() == 0) {
-						rendersetuplist(dat, setuplist);
+						rendersetuplist(dat, setuplist, ind);
 					}
 					if (notebook.get_current_page() == 1) {
-						renderforecast(forecasted, forecastlistbox);
+						renderforecast(forecasted, forecastlistbox, ind);
 					}
 					if (notebook.get_current_page() == 2) {
-						renderforecast(forecasted, forecastlistbox);
+						renderforecast(forecasted, forecastlistbox, ind);
 						graphimg.queue_draw ();
 					}
 					doupdate = true;
@@ -1833,6 +1781,7 @@ public class FTW : Window {
 		});
 		hhh.changed.connect (() => {
 			if (doupdate) {
+				ind = 4;
 				if (hhh.text.strip() != "") {
 					var g = new Gdk.RGBA();
 					if (g.parse(hhh.text)) {
@@ -1840,16 +1789,17 @@ public class FTW : Window {
 						var r = 0;
 						if (s != null) {
 							doupdate = false;
+							print("hhh.changed.connect:\tchanging value to: %s\n", hhh.text);
 							r = s.get_index();
-							adjustgroupcolor(dat, forecasted, r, hhh, rrr.adjustment.value, ggg.adjustment.value, bbb.adjustment.value, false);
+							adjustgroupcolor(dat, forecasted, r, hhh, rrr.adjustment.value, ggg.adjustment.value, bbb.adjustment.value, false, ind);
 							if (notebook.get_current_page() == 0) {
-								rendersetuplist(dat, setuplist);
+								rendersetuplist(dat, setuplist, ind);
 							}
 							if (notebook.get_current_page() == 1) {
-								renderforecast(forecasted, forecastlistbox);
+								renderforecast(forecasted, forecastlistbox, ind);
 							}
 							if (notebook.get_current_page() == 2) {
-								renderforecast(forecasted, forecastlistbox);
+								renderforecast(forecasted, forecastlistbox, ind);
 								graphimg.queue_draw ();
 							}
 							rrr.adjustment.value = ((double) ((int) (g.red * 255.0)));
@@ -1861,9 +1811,11 @@ public class FTW : Window {
 				}
 			}
 		});
-		saveit.clicked.connect (() =>  {
+		savebtn.clicked.connect (() =>  {
 			if (scene.text != null) {
 				if (scene.text.strip() != "") {
+					print("savebtn.clicked.connect:\tsaving scenario: %s\n", scene.text);
+					ind = 4;
 					var dd = GLib.Environment.get_current_dir();
 					string nn = (scene.text + ".scenario");
 					string ff = Path.build_filename (dd, nn);
@@ -1877,14 +1829,18 @@ public class FTW : Window {
 						}
 						oo.write("\n".data);
 					}
+					spop.popdown();
 				}
 			}
 		});
-		//loadit.clicked.connect (() =>  {
-		//	spop.show_all();
-		//});
+		saveit.clicked.connect(() => {
+			//spopbox.show_all();
+			spop.show_all();
+		});
 		loadit.clicked.connect (() =>  {
-			spopbox.foreach ((element) => spopbox.remove (element));
+			print("loadit.clicked.connect:\tfetching saved scenarios...\n");
+			ind = 4;
+			lpopbox.foreach ((element) => lpopbox.remove (element));
 			var pth = GLib.Environment.get_current_dir();
 			//print("current path is: %s\n", pth);
 			GLib.Dir dcr = Dir.open (pth, 0);
@@ -1896,9 +1852,9 @@ public class FTW : Window {
 					//print("\t\text[0]: %s\n", exts[0]);
 					//print("\t\text[1]: %s\n", exts[1]);
 					if (exts[1] == "scenario") {
-						//print("\t\tfound scenario file: %s\n", name);
+						print("loadit.clicked: found scenario file: %s\n", name);
 						Gtk.Button muh = new Gtk.Button.with_label (name);
-						spopbox.add(muh);
+						lpopbox.add(muh);
 						muh.clicked.connect ((buh) => {
 							var dd = GLib.Environment.get_current_dir();
 							var nn = buh.label;
@@ -1907,6 +1863,8 @@ public class FTW : Window {
 							var ss = FileStream.open(ff, "r");
 							string tt = ss.read_line();
 							if (tt != null) {
+								print("    muh.clicked.connect:\tloading scenario: %s\n",nn);
+								ind = 8;
 								string[] oo = {};
 								while (tt != null){
 									oo += tt;
@@ -1941,25 +1899,27 @@ public class FTW : Window {
 									selectedrule = 0;
 									row = setuplist.get_row_at_index(0);
 									doupdate = false; setuplist.select_row(row); doupdate = true;
-									selectarow (dat, setuplist, flowbox, evrcombo, nthcombo, wkdcombo, fdycombo, mthcombo, fmocombo, dsc, fye, amtf, grpcombo, catcombo, grpcolb);
-									forecasted = forecast(dat,forecastlistbox, iso.get_active(), 0);
+									selectarow (dat, setuplist, flowbox, evrcombo, nthcombo, wkdcombo, fdycombo, mthcombo, fmocombo, dsc, fye, amtf, grpcombo, catcombo, grpcolb, ind);
+									forecasted = forecast(dat,forecastlistbox, iso.get_active(), 0, ind);
 									graphimg.queue_draw ();
 								}
 							}
-							spop.popdown();
+							lpop.popdown();
 						});
 					}
 				}
 			}
-			spopbox.show_all();
-			spop.show_all();
+			lpopbox.show_all();
+			lpop.show_all();
 		});
 		addrule.clicked.connect (() =>  {
 			var s = setuplist.get_selected_row();
 			var w = 0;
 			var n = dat.length[0];
 			if (s != null) {
+				ind = 4;
 				w = s.get_index();
+				print("addrule.clicked.connect:\tadding new rule...\n");
 				//print("selected row is %d\n", w);
 				string[,] tdat = new string[(n+1),13];
 				for (var r = 0; r < dat.length[0]; r++) {
@@ -2003,8 +1963,8 @@ public class FTW : Window {
 				selectedrule = (dat.length[0] - 1);
 				row = setuplist.get_row_at_index((dat.length[0] - 1));
 				doupdate = false; setuplist.select_row(row); doupdate = true;
-				selectarow (dat, setuplist, flowbox, evrcombo, nthcombo, wkdcombo, fdycombo, mthcombo, fmocombo, dsc, fye, amtf, grpcombo, catcombo, grpcolb);
-				forecasted = forecast(dat,forecastlistbox, iso.get_active(), (dat.length[0] - 1));
+				selectarow (dat, setuplist, flowbox, evrcombo, nthcombo, wkdcombo, fdycombo, mthcombo, fmocombo, dsc, fye, amtf, grpcombo, catcombo, grpcolb, ind);
+				forecasted = forecast(dat,forecastlistbox, iso.get_active(), (dat.length[0] - 1), ind);
 				graphimg.queue_draw ();
 			}
 		});
@@ -2013,7 +1973,9 @@ public class FTW : Window {
 			var w = 0;
 			var n = dat.length[0];
 			if (s != null) {
+				ind = 4;
 				w = s.get_index();
+				print("remrule.clicked.connect:\tremoving rule: %s\n",dat[w,9]);
 				//print("selected row is %d\n", w);
 				string[,] tdat = new string[(n-1),13];
 				var i = 0;
@@ -2039,8 +2001,8 @@ public class FTW : Window {
 				selectedrule = (dat.length[0] - 1);
 				row = setuplist.get_row_at_index((dat.length[0] - 1));
 				doupdate = false; setuplist.select_row(row); doupdate = true;
-				selectarow (dat, setuplist, flowbox, evrcombo, nthcombo, wkdcombo, fdycombo, mthcombo, fmocombo, dsc, fye, amtf, grpcombo, catcombo, grpcolb);
-				forecasted = forecast(dat,forecastlistbox, iso.get_active(), (dat.length[0] - 1));
+				selectarow (dat, setuplist, flowbox, evrcombo, nthcombo, wkdcombo, fdycombo, mthcombo, fmocombo, dsc, fye, amtf, grpcombo, catcombo, grpcolb, ind);
+				forecasted = forecast(dat,forecastlistbox, iso.get_active(), (dat.length[0] - 1), ind);
 				graphimg.queue_draw ();
 			}
 		});
