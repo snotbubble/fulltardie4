@@ -1,0 +1,109 @@
+# -*- org-todo-keyword-faces: (("[0_TDO]" . "orange") ("[1_WIP]" . "yellow") ("[2_FIX]" . "red") ("[3_TST]" . "cyan") ("[4_REV]" . "magenta") ("[5_NUP]" . "black") ("[6_AOK]" . "green")); -*-
+#+STARTUP: indent overview 
+#+TODO: [0_TDO] [1_WIP] [2_FIX] [3_TST] [4_REV] [5_NUP] [6_AOK]
+
+remove completed sub-items from the list
+
+* UI
+** [1_WIP] setup params
+*** make touch scroll gutter [0/2]
+- [ ] move iso next to rule name
+- [ ] resize grids, or add blank space
+*** compact group/cat/amt [0/3]
+- [ ] find a way to pack-left while keeping widget+label together
+- [ ] investigate actiobar
+- [ ] maintain reflow behavior
+** [1_WIP] setup list
+*** drag and drop re-ordering
+** [1_WIP] forecast list
+*** retain selection where possible
+*** sync selection to graph selection
+** [1_WIP] graph
+*** FIX
+*** [0_TDO] touch pan
+*** [0_TDO] touch zoom
+*** [0_TDO] touch select
+*** [0_TDO] sync selection to forecast selection
+**** zoom to selected month
+*** [0_TDO] zoom extents x on start/isolate
+**** add 40 padding left and right
+**** ensure it works with info overlay
+*** [0_TDO] zoom extents y on start/isolate
+**** fit to min 4px bar * whatever fits in the display area
+**** add 10 pad to top
+**** ensure it works with info overlay
+*** [0_TDO] double-click/double-tap to zoom-extents
+**** use zoom extents x y as above
+*** [0_TDO] clear overlay on forecast, isolate & load
+** [0_TDO] calendar
+*** research drawing techniques in new project
+** [6_AOK] toolbar
+** [1_WIP] findnextdate
+*** testing [0/43]
+- [ ] every August 8
+- [ ] August 8 2023
+- [ ] the last day of february
+- [ ] last day of the month
+- [ ] last friday of the month
+- [ ] 1st day of month
+- [ ] 1st friday of the month
+- [ ] weekday closest to the 1st day of the month
+- [ ] weekday on or before the 1st day of the month
+- [ ] weekday on or after the 1st day of the month
+- [ ] weekday closest to the last day of the month
+- [ ] weekday on or before the last day of the mont
+- [ ] weekday on or after the last day of the month
+- [ ] weekday closest to the 1st of january 2022
+- [ ] weekday on or before the 1st of january 2022
+- [ ] weekday on or after the 1st of january 2022
+- [ ] every 3rd of every month
+- [ ] every 3rd of every 3rd month
+- [ ] every 3rd of every 3rd month from february
+- [ ] every 3rd and 18th of every month
+- [ ] every 3rd and 18th of every 3rd month
+- [ ] every 3rd and 18th of every 3rd month from february
+- [ ] the weekday cosest to every 3rd and 18th of every month
+- [ ] the weekday cosest to every 3rd and 18th of every 3rd month
+- [ ] the weekday cosest to every 3rd and 18th of every 3rd month from february
+- [ ] every 4th day of every month
+- [ ] every 4th day of every month from the 12th day of the month
+- [ ] every 4th day of every 3rd month from the 12th day of the month
+- [ ] every 4th day of every 3rd month from february from the 12th day of the month
+- [ ] the weekday closest to every 4th day of every month
+- [ ] the weekday closest to every 4th day of every month from the 12th day of the month
+- [ ] the weekday closest to every 4th day of every 3rd month from the 12th day of the month
+- [ ] the weekday closest to every 4th day of every 3rd month from february from the 12th day of the month
+- [ ] every 2nd friday of every month
+- [ ] every 2nd friday of every 3rd month
+- [ ] every 2nd friday of every 3rd month from february
+- [ ] every 2nd friday of every month from-and-including the 1st friday of the month
+- [ ] every 2nd friday of every 3rd month from-and-including the 1st friday of the month
+- [ ] every 2nd friday of every 3rd month from february from-and-including the 1st friday of the month
+- [ ] every 14th day from september 15 2021
+- [ ] the weekday closest to every 14th day from september 15 2021
+- [ ] the weekday on or before every 14th day from september 15 2021
+- [ ] the weekday on or after every 14th day from september 15 2021
+*** save tests to scenario file  
+** [1_WIP] io
+*** check scenario file before loading it [0/3]
+- [ ] check column count
+- [ ] check empty column data
+- [ ] check numbers
+
+** [1_WIP] optimize
+*** print everything [2/4]
+- [X] indent output
+- [ ] brace the output (for folding)
+- [X] exclude pounded functions
+- [ ] include inputs where practical
+- [ ] add a toggle for it!
+- [ ] add a toggle to stream it to file
+*** [1_WIP] check for redundant activity [1/1]
+- [X] fix graph double forecast
+*** cleanup [1/4]
+- [X] remove hsv code
+- [ ] remove commented code
+- [ ] remove any other redundant commentary
+*** remove unused vars
+*** reduce variable usage
+*** zero out temp vars when done
