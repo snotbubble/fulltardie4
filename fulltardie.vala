@@ -1270,12 +1270,22 @@ public class FTW : Window {
 
 // graph interaction
 
+		graphimg.add_events (Gdk.EventMask.TOUCH_MASK);
 		graphimg.add_events (Gdk.EventMask.BUTTON_PRESS_MASK);
 		graphimg.add_events (Gdk.EventMask.BUTTON2_MOTION_MASK);
 		graphimg.add_events (Gdk.EventMask.BUTTON3_MOTION_MASK);
 		graphimg.add_events (Gdk.EventMask.BUTTON_RELEASE_MASK);
 		graphimg.add_events (Gdk.EventMask.POINTER_MOTION_MASK);
 		graphimg.add_events (Gdk.EventMask.SCROLL_MASK);
+		graphimg.touch_event.connect((event) => {
+			ind = 4;
+			mousedown = {event.touch.x, event.touch.y};
+			graphpan = true;
+			graphzoom = false;
+			graphpick = false;
+			graphimg.queue_draw();
+			return true;
+		});
 		graphimg.button_press_event.connect ((event) => {
 			ind = 4;
 			//print("graphimg.button_press_event\n");
