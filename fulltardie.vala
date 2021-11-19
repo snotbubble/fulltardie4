@@ -17,6 +17,17 @@ string textcolor () { return "#55BDFF"; }
 string rowcolor () { return "#1A3B4F"; }
 string ttcolor () { return "#112633"; }
 
+struct nextdate {
+	public Date nxd;
+	public double amt;
+	public string grp;
+	public string cat;
+	public string dsc;
+	public int frm;
+	public string cco;
+	public string gco;
+}
+
 // true modulo from 'cdeerinck'
 // https://stackoverflow.com/questions/41180292/negative-number-modulo-in-swift#41180619
 int dmod (int l, int r, int ind) {
