@@ -724,14 +724,16 @@ public class FTW : Window {
 	private bool graphpick;
 	private int ind;
 	string[,] dat = {
-		{"1","1","7","0","1","7","0","-5.00","grocery","home","every sunday of every month starting from this september","",""},
-		{"2","2","1","0","1","0","0","-10.0","train","work","every 2nd and 4th monday of every month starting this month","",""},
-		{"1","6","4","0","3","2","0","150.0","pay","work","every last thursday of every 3rd month starting february","",""},
-		{"1","26","8","0","1","0","0","-10.0","utility","home","every weekday closest to the 26th of the month starting this month","",""},
-		{"1","32","0","0","12","2","0","-60.0","insurance","home","every last day of february","",""},
-		{"0","8","0","0","0","8","0","-300.0","holiday","recreation","next august 8th","",""},
-		{"0","9","9","0","1","11","0","5.0","interest","investment","every weekday before the 9th of every month starting november","",""},
-		{"1","14","10","0","1","0","0","-15.0","utility","home","every 14th and 28th day of every month or the following weekday if on a weekend","",""}
+		{"1","0","7","0","1","7","0","-5.00","cat1","group1","every sunday of every month starting from this september","",""},
+		{"1","14","0","21","0","5","2021","200.0","cat2","group2","every 14th day from the 21st of May 2021","",""},
+		{"1","3","2","0","0","12","2021","5.0","cat2","group2","every 3 Tuesdays starting December 2021","",""},
+		{"1","2","1","0","1","0","0","-5.0","cat2","group2","every 2nd monday of every month","",""},
+		{"1","6","4","0","3","2","0","-10.0","cat3","group2","every last thursday of every 3rd month from february","",""},
+		{"1","26","8","0","1","0","0","-10.0","cat4","group1","every weekday closest to the 26th of the month","",""},
+		{"1","32","0","0","12","2","0","-60.0","cat5","group1","every last day of february","",""},
+		{"0","8","0","0","0","8","0","-300.0","cat6","group3","next august 8th","",""},
+		{"0","9","9","0","1","0","0","5.0","cat7","group4","every weekday before the 9th of every month","",""},
+		{"1","14","10","0","1","0","0","-15.0","cat4","group1","weekday on or after the 14th and 28th of every month","",""}
 	};
 	string[] evr = {"the","every","every 2nd", "every 3rd", "every 4th", "every 5th", "every 6th", "every 7th", "every 8th", "every 9th", "every 10th", "every 11th","every 12th", "every 13th", "every 14th", "every 15th", "every 16th", "every 17th", "every 18th", "every 19th", "every 20th", "every 21st","every 22nd", "every 23rd", "every 24th", "every 25th", "every 26th", "every 27th", "every 28th", "every 29th", "every 30th", "every 31st", "every last"};
 	string[] nth = {"", "1st", "2nd", "3rd", "4th", "5th", "6th", "7th", "8th", "9th", "10th", "11th", "12th", "13th", "14th", "15th", "16th", "17th", "18th", "19th", "20th", "21st", "22nd", "23rd", "24th", "25th", "26th", "27th", "28th", "29th", "30th", "31st", "last"};
@@ -1277,18 +1279,39 @@ public class FTW : Window {
 		graphimg.add_events (Gdk.EventMask.BUTTON_RELEASE_MASK);
 		graphimg.add_events (Gdk.EventMask.POINTER_MOTION_MASK);
 		graphimg.add_events (Gdk.EventMask.SCROLL_MASK);
+		//graphimg.gesture.released.connect((event) => {
+		//	print("graphimg.gesture.released.connect\n");
+		//});
 		graphimg.touch_event.connect((event) => {
 			ind = 4;
-			mousedown = {event.touch.x, event.touch.y};
-			graphpan = true;
-			graphzoom = false;
-			graphpick = false;
-			graphimg.queue_draw();
+			if (event.type == TOUCH_BEGIN) {
+				print("graphimg.touch_event.connect:\tTOUCH_BEGIN\n");
+				mousedown = {event.touch.x, event.touch.y};
+				graphpick = true;
+				graphpan = false;
+				graphzoom = false;
+			} else {
+				if (event.type == TOUCH_END) {
+					print("graphimg.touch_event.connect:\tTOUCH_END\n");
+					graphpick = false;
+					graphpan = false;
+					graphzoom = false;
+					oldgraphsize = {sizx, sizy};
+					oldgraphoffset = {posx, posy};
+					oldmousedown = {targx, targy};
+				} else {
+					graphpan = true;
+					graphzoom = false;
+					graphpick = false;
+					mousemove = { event.touch.x, event.touch.y };
+					graphimg.queue_draw();
+				}
+			}
 			return true;
 		});
 		graphimg.button_press_event.connect ((event) => {
 			ind = 4;
-			//print("graphimg.button_press_event\n");
+			print("graphimg.button_press_event.connect\n");
 			mousedown = {event.x, event.y};
 			graphpick = (event.button == 1);
 			graphzoom = (event.button == 3);
@@ -1297,47 +1320,31 @@ public class FTW : Window {
 				oldmousedown = {mousedown[0], mousedown[1]};
 				targx = mousedown[0]; targy = mousedown[1]; 
 			}
-// this doesn't work
-//			graphscroll = (event.button == 4 || event.button == 5);
-			//print("graphimg.button_press_event.connect: event.button = %u\n", event.button);
-			//print("graphimg.button_press_event is redrawing the graph...\n");
-			//if (graphpick) { graphimg.queue_draw(); }
 			return true;
 		});
 		graphimg.motion_notify_event.connect ((event) => {
 			ind = 4;
 			if (graphzoom == false && graphpan == false && graphpick == false) { mousedown = {event.x, event.y}; }
-			//print("we're hoverin @ %f x %f\n", mousemove[0], mousemove[1]);
 			mousemove = {event.x, event.y};
 			if (graphzoom || graphpan) {
-				//mousemove = {event.x, event.y};
-				//print("graphimg.motion_notify_event is redrawing the graph...\n");
 				graphimg.queue_draw();
 			}
 			return true;
 		});
 		graphimg.scroll_event.connect ((event) => {
-				ind = 4;
-			//if (graphscroll) {
-				scrolldir = UP;
-				if (event.scroll.direction == scrolldir) {
-					graphscroll = true;
-					//mousedown = {targx, targy};
-					//mousedown = {event.x, event.y};
-					mousemove = {(mousedown[0] + 50.0), (mousedown[1] + 50.0)};
-					//print("graphimg.scroll_event.scroll.direction UP is redrawing the graph...\n");
-					graphimg.queue_draw();
-				}
-				scrolldir = DOWN;
-				if (event.scroll.direction == scrolldir)  {
-					graphscroll = true;
-					//mousedown = {targx, targy};
-					//mousedown = {event.x, event.y};
-					mousemove = {(mousedown[0] - 50.0), (mousedown[1] - 50.0)};
-					//print("graphimg.scroll_event.scroll.direction DOWN is redrawing the graph...\n");
-					graphimg.queue_draw();
-				}
-			//}
+			ind = 4;
+			scrolldir = UP;
+			if (event.scroll.direction == scrolldir) {
+				graphscroll = true;
+				mousemove = {(mousedown[0] + 50.0), (mousedown[1] + 50.0)};
+				graphimg.queue_draw();
+			}
+			scrolldir = DOWN;
+			if (event.scroll.direction == scrolldir)  {
+				graphscroll = true;
+				mousemove = {(mousedown[0] - 50.0), (mousedown[1] - 50.0)};
+				graphimg.queue_draw();
+			}
 			return true;
 		});
 
@@ -1345,18 +1352,16 @@ public class FTW : Window {
 
 		graphimg.button_release_event.connect ((event) => {
 			ind = 4;
-			print("graphimg.button_release_event\n");
+			print("graphimg.button_release_event.connect\n");
 			graphzoom = false;
 			graphpan = false;
 			graphscroll = false;
 			if (graphpick) { 
-				print("graphimg.button_release_event is redrawing the graph...\n");
 				graphimg.queue_draw(); 
 			}
 			oldgraphsize = {sizx, sizy};
 			oldgraphoffset = {posx, posy};
 			oldmousedown = {targx, targy};
-			print("graphimg.button_release_event: \toldmousedown[0] = %f\n", oldmousedown[0]);
 			return true;
 		});
 
@@ -1364,7 +1369,6 @@ public class FTW : Window {
 
 		notebook.append_page(setuppage, label2);
 		notebook.append_page(forecastpage, label3);
-		//notebook.append_page(graphpage, label4);
 		notebook.append_page(graphimg, label4); 
 
 // select row
