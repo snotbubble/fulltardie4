@@ -1005,7 +1005,16 @@ public class FTW : Window {
 		label4.set_markup("<b><big>graph</big></b>");
 		var graphimg = new Gtk.DrawingArea();
 
+// [ notebook page ]
+//        |
+//   [ eventbox ] <- this seems to be the only way to get multitouch gestures for touch zoom in gtk3
+//        |
+//  [ drawingarea ]
+
 // graph draw -- move to events below once its allgood
+
+		var ebox = new Gtk.EventBox();
+		ebox.add(graphimg);
 
 		graphimg.draw.connect((ctx) => {
 			//print("\ngraphimg.draw: started...\n");
@@ -1279,9 +1288,11 @@ public class FTW : Window {
 		graphimg.add_events (Gdk.EventMask.BUTTON_RELEASE_MASK);
 		graphimg.add_events (Gdk.EventMask.POINTER_MOTION_MASK);
 		graphimg.add_events (Gdk.EventMask.SCROLL_MASK);
-		//graphimg.gesture.released.connect((event) => {
-		//	print("graphimg.gesture.released.connect\n");
-		//});
+		
+		var ges = new Gtk.GestureMultiPress (ebox);
+		ges.pressed.connect(() => {
+			print("ges.pressed.connect...\n");
+		});
 		graphimg.touch_event.connect((event) => {
 			ind = 4;
 			if (event.type == TOUCH_BEGIN) {
@@ -1369,7 +1380,7 @@ public class FTW : Window {
 
 		notebook.append_page(setuppage, label2);
 		notebook.append_page(forecastpage, label3);
-		notebook.append_page(graphimg, label4); 
+		notebook.append_page(ebox, label4); 
 
 // select row
 
