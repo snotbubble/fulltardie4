@@ -13,15 +13,20 @@ remove completed sub-items from the list
 - [ ] find a way to pack-left while keeping widget+label together
 - [ ] investigate actiobar
 - [ ] maintain reflow behavior
-** [1_WIP] setup list
+*** [3_TST] update group colors on edit [3/3]
+- [X] only re-render relevant views
+- [X] find matching group color on change
+- [X] find matching group color on rename
+** [0_TDO] setup list
 *** drag and drop re-ordering
-** [1_WIP] forecast list
-*** retain selection where possible
-*** sync selection to graph selection
+- [ ] get graph touch events working 1st...
+** [5_NUP] forecast list
+*** [5_NUP] retain selection where possible
+*** [5_NUP] sync selection to graph selection
 ** [1_WIP] graph
 *** FIX
-*** [0_TDO] touch pan
-*** [0_TDO] touch zoom
+*** [3_TST] touch pan
+*** [1_WIP] touch zoom
 *** [0_TDO] touch select
 *** [0_TDO] sync selection to forecast selection
 **** zoom to selected month
@@ -38,15 +43,42 @@ remove completed sub-items from the list
 ** [0_TDO] calendar
 *** research drawing techniques in new project
 ** [6_AOK] toolbar
-** [1_WIP] findnextdate
-*** testing [0/43]
-- [ ] every August 8
+** [0_TDO] io
+*** check scenario file before loading it [0/3]
+- [ ] check column count
+- [ ] check empty column data
+- [ ] check numbers
+
+** [1_WIP] optimize
+*** [1_WIP] print everything [2/4]
+- [X] indent output
+- [ ] brace the output (for folding)
+- [X] exclude pounded functions
+- [ ] include inputs where practical
+- [ ] add a toggle for it!
+- [ ] add a toggle to stream it to file
+*** [3_TST] check for redundant activity [1/1]
+- [X] fix graph double forecast
+*** [1_WIP] cleanup [2/3]
+- [X] remove hsv code
+- [ ] remove commented code
+- [X] remove any other redundant commentary
+*** [0_TDO] remove unused vars
+*** [0_TDO] reduce variable usage
+*** [0_TDO] zero out temp vars when done
+- [ ] investigate the benefits 1st
+* [2_FIX] findnextdate
+** FIX [0/2]
+- [ ] every 3rd tuesday from next month : offset month -1
+- [ ] every 3rd tuesday from the 2nd instance from next month : as above
+** [1_WIP] testing [6/41]
+- [X] every August 8
 - [ ] August 8 2023
-- [ ] the last day of february
-- [ ] last day of the month
-- [ ] last friday of the month
-- [ ] 1st day of month
-- [ ] 1st friday of the month
+- [X] the last day of february
+- [X] last day of the month
+- [X] last friday of the month
+- [X] 1st day of month
+- [X] 1st friday of the month
 - [ ] weekday closest to the 1st day of the month
 - [ ] weekday on or before the 1st day of the month
 - [ ] weekday on or after the 1st day of the month
@@ -80,30 +112,5 @@ remove completed sub-items from the list
 - [ ] every 2nd friday of every 3rd month from-and-including the 1st friday of the month
 - [ ] every 2nd friday of every 3rd month from february from-and-including the 1st friday of the month
 - [ ] every 14th day from september 15 2021
-- [ ] the weekday closest to every 14th day from september 15 2021
-- [ ] the weekday on or before every 14th day from september 15 2021
-- [ ] the weekday on or after every 14th day from september 15 2021
-*** save tests to scenario file  
-** [1_WIP] io
-*** check scenario file before loading it [0/3]
-- [ ] check column count
-- [ ] check empty column data
-- [ ] check numbers
-
-** [1_WIP] optimize
-*** print everything [2/4]
-- [X] indent output
-- [ ] brace the output (for folding)
-- [X] exclude pounded functions
-- [ ] include inputs where practical
-- [ ] add a toggle for it!
-- [ ] add a toggle to stream it to file
-*** [1_WIP] check for redundant activity [1/1]
-- [X] fix graph double forecast
-*** cleanup [1/4]
-- [X] remove hsv code
-- [ ] remove commented code
-- [ ] remove any other redundant commentary
-*** remove unused vars
-*** reduce variable usage
-*** zero out temp vars when done
+- [ ] every 3rd tuesday from december 8th 2021
+** [0_TDO] save tests to scenario file  
