@@ -813,7 +813,23 @@ public class FTW : Window {
 		bar.pack_start(loadit);
 		bar.pack_end(saveit);
 
-// setup page
+
+//    [ notebook ]
+//         |
+//  [ notebook page ]
+//         |
+// [ scrolledwindow ]
+//         |
+//      [ grid ]
+//         |
+//   +---------+---+
+//   |  head   | g |
+//   +---------+ u |
+//   | flowbox | t |
+//   +---------+ t |
+//   |  tail   | r |
+//   +---------+---+
+
 
 		var setuppage = new ScrolledWindow(null, null);
 		for (var e = 0; e < dat.length[0]; e++) {
@@ -878,20 +894,13 @@ public class FTW : Window {
 		Gtk.Adjustment adj = new Adjustment(0.0,-100000,100000.0,10.0,100.0,1.0);
 		Gtk.SpinButton amtf = new SpinButton(adj,1.0,2);
 		var grpcombo = new ComboBoxText.with_entry();
+		grpcombo.set_halign(START);
 		var vv = (Entry) grpcombo.get_child();
 		vv.set_width_chars(8);
 		var catcombo = new ComboBoxText.with_entry();
 		var ee = (Entry) catcombo.get_child();
 		ee.set_width_chars(8);
-		var grp = new Box(VERTICAL,10);
-		var hgrp = new Box(HORIZONTAL,10);
-		hgrp.add(dsc);
-		var hbgrp = new FlowBox();
-		hbgrp.set_orientation(Orientation.HORIZONTAL);
-		hbgrp.min_children_per_line = 1;
-		hbgrp.max_children_per_line = 5;
-		Gtk.Label glb = new Label("grp");
-		glb.set_max_width_chars(8);
+
 
 // color swatch
 
@@ -923,38 +932,98 @@ public class FTW : Window {
 
 		Gtk.Label clb = new Label("cat");
 		clb.set_max_width_chars(8);
+		clb.set_halign(START);
+
 		Gtk.Label alb = new Label("amt");
 		alb.set_max_width_chars(8);
-		Gtk.ToggleButton iso = new ToggleButton.with_label("isolate");
-		var grpbox = new Box(HORIZONTAL,10);
-		var catbox = new Box(HORIZONTAL,10);
-		var amtbox = new Box(HORIZONTAL,10);
+		alb.set_halign(START);
+
+		Gtk.ToggleButton iso = new ToggleButton.with_label("ISO");
 		iso.set_halign(END);
-		hbgrp.set_column_spacing(10);
-		grpbox.add(glb);
+		
+		Gtk.Label glb = new Label("grp");
+		glb.set_max_width_chars(8);
 		glb.set_halign(START);
-		grpbox.add(grpcombo);
-		grpcombo.set_halign(START);
-		grpbox.add(grpcolb);
-		grpcolb.set_halign(START);
-		catbox.add(clb);
-		clb.set_halign(START);
-		catbox.add(catcombo);
-		catcombo.set_halign(START);
-		amtbox.add(alb);
-		amtbox.add(amtf);
-		hbgrp.add(grpbox);
-		hbgrp.add(catbox);
-		hbgrp.add(amtbox);
-		hbgrp.add(iso);
+		glb.set_hexpand(false);
+
+		//var grpbox = new Box(HORIZONTAL,10);
+		//var grpbox = new ActionBar();
+		//grpbox.pack_start(glb);
+		//grpbox.pack_start(grpcombo);
+		//grpbox.add(glb);
+		//grpbox.add(grpcombo);
+
+		//grpbox.add(grpcolb);
+		//grpcolb.set_halign(START);
+
+		//var catbox = new Box(HORIZONTAL,10);
+		//catbox.add(clb);
+		//clb.set_halign(START);
+		//catbox.add(catcombo);
+		//catcombo.set_halign(START);
+
+		//var amtbox = new Box(HORIZONTAL,10);
+		//amtbox.add(alb);
+		//amtbox.add(amtf);
+
+
+		//var hbgrp = new FlowBox();
+		//hbgrp.set_orientation(Orientation.HORIZONTAL);
+		//hbgrp.min_children_per_line = 1;
+		//hbgrp.max_children_per_line = 10;
+		//hbgrp.set_column_spacing(10);
+
+		var hbgrp = new Box(HORIZONTAL,10);
+
+		//var hbgrp = new ActionBar();
+		//hbgrp.pack_start(glb);
+		//hbgrp.pack_start(grpcombo);
+		//hbgrp.pack_start(grpcolb);
+		//hbgrp.pack_start(clb);
+		//hbgrp.pack_start(catcombo);
+		//hbgrp.pack_start(alb);
+		//hbgrp.pack_start(amtf);
+
+		//hbgrp.add(grpbox);
+		//hbgrp.add(catbox);
+		//hbgrp.add(amtbox);
+
+		hbgrp.add(glb);
+		hbgrp.add(grpcombo);
+		hbgrp.add(grpcolb);
+		hbgrp.add(clb);
+		hbgrp.add(catcombo);
+		hbgrp.add(alb);
+		hbgrp.add(amtf);
+
+// 
+
+		var hgrp = new Box(HORIZONTAL,10);
+		hgrp.add(dsc);
+		hgrp.add(iso);
 		hgrp.add(addrule);
 		hgrp.add(remrule);
 
 // assemble params
 
+		
+		var gutter = new Box(HORIZONTAL,0);
+		gutter.set_size_request(100,1);
+
+		var grp = new Box(VERTICAL,10);
+		//var grp = new Grid();
 		grp.add(hgrp);
 		grp.add(flowbox);
 		grp.add(hbgrp);
+		//grp.attach(hgrp,0,0,1,1);
+		//grp.attach(flowbox,0,1,1,1);
+		//grp.attach(hbgrp,0,2,1,1);
+		//grp.attach(gutter,1,0,1,1);
+		grp.margin_end = 100;
+
+		var paramscroller = new ScrolledWindow(null,null);
+		paramscroller.set_min_content_height(200);
+		paramscroller.add(grp);
 
 // more containers
 
@@ -962,18 +1031,24 @@ public class FTW : Window {
 		setuplistcontainer.set_vexpand(true);
 		setuplistcontainer.add(setuplist);
 		setuppage.add(setuplistcontainer);
-		var grid = new Grid();
-		grid.set_row_spacing(5);
-		grid.set_column_spacing(5);
-		//grid.attach(setuplistcontainer,0,0,1,1);
-		grid.attach(grp,0,1,1,1);
-		grid.set_baseline_row(1);
-		//setuppage.add(grid);
+
+
+		//var grid = new Grid();
+		//grid.set_row_spacing(5);
+		//grid.set_column_spacing(5);
+		//grid.attach(paramscroller,0,0,1,1);
+		//grid.attach(gutter,1,0,1,1);
+		//grid.attach(hgrp,0,0,1,1);
+		//grid.attach(flowbox.0,1,1,1);
+		//grid.attach(hbgrp,0,2,1,1);
+		//grid.attach(gutter,1,0,1,1);
+		//grid.set_baseline_row(1);
 
 // add everything to the main grid
 
 		uig.attach(notebook, 0, 0, 1, 1);
-		uig.attach(grid, 0, 1, 1, 1);
+		uig.attach(paramscroller, 0, 1, 1, 1);
+		//uig.attach(grid,0,1,1,1);
 		this.add(uig);
 
 // foecast page
@@ -1012,6 +1087,8 @@ public class FTW : Window {
 
 		graphimg.draw.connect((ctx) => {
 			//print("\ngraphimg.draw: started...\n");
+			//print("    graphimg.draw:\tforecasted.length[0] = %d\n", forecasted.length[0]);
+			//print("    graphimg.draw:\tforecasted.length[1] = %d\n", forecasted.length[1]);
 			if (drawit) {
 				var presel = selectedrule;
 				var csx = graphimg.get_allocated_width();
@@ -1201,6 +1278,7 @@ public class FTW : Window {
 				}
 
 // draw selected transaction overlay
+// 99999 is the reset number... sucks you for forcasting exactly that many transactions
 
 				if (selectedtrns != 99999) {
 					// now.format ("%d/%m/%Y")
@@ -1219,8 +1297,6 @@ public class FTW : Window {
 					ctx.fill();
 
 // draw pointer
-// cairo doesn't seem to do variable width lines, unless there's a hacky way to scale it
-// doing it as a triangle for now...
 
 					ctx.set_line_cap (Cairo.LineCap.ROUND);
 					ctx.move_to(targx, targy);
@@ -1413,11 +1489,18 @@ public class FTW : Window {
 				if (pix == 0) {
 					rendersetuplist(dat, setuplist, ind);
 				}
-				if (pix == 1) {
+				if (pix == 1) { 
+					if (iso.get_active()) {
+						selectedtrns = 99999;
+						forecasted = forecast(dat, forecastlistbox, iso.get_active(), r, ind); 
+					}
 					renderforecast(forecasted, forecastlistbox, ind);
-					//forecasted = forecast(dat, forecastlistbox, iso.get_active(), r, ind);
 				}
 				if (pix == 2) {
+					if (iso.get_active()) {
+						selectedtrns = 99999;
+						forecasted = forecast(dat, forecastlistbox, iso.get_active(), r, ind);
+					}
 					renderforecast(forecasted, forecastlistbox, ind);
 					graphimg.queue_draw ();
 				}
@@ -1430,8 +1513,14 @@ public class FTW : Window {
 			if (doupdate) {
 				print("setuplist.row_selected.connect:\tselecting row: %d\n", row.get_index());
 				ind = 4;
-				selectedrule = row.get_index();
-				selectarow (dat, setuplist, flowbox, evrcombo, nthcombo, wkdcombo, fdycombo, mthcombo, fmocombo, dsc, fye, amtf, grpcombo, catcombo, grpcolb, ind);
+				if (row != null) {
+					selectedrule = row.get_index();
+					if (iso.get_active()) {
+						selectedtrns = 99999;
+						forecasted = forecast(dat, forecastlistbox, iso.get_active(), selectedrule, ind); 
+					}
+					selectarow (dat, setuplist, flowbox, evrcombo, nthcombo, wkdcombo, fdycombo, mthcombo, fmocombo, dsc, fye, amtf, grpcombo, catcombo, grpcolb, ind);
+				}
 			}
 		});
 
@@ -1470,6 +1559,7 @@ public class FTW : Window {
 					print("evrcombo.changed.connect:\tselecting item: %d\n", n);
 					r = s.get_index(); 
 					dat[r,0] = n.to_string();
+					selectedtrns = 99999;
 					forecasted = forecast(dat, forecastlistbox, iso.get_active(), r, ind);
 					graphimg.queue_draw ();
 					//print ( "evrcombo.changed: dat[%d,%d] = %s\n", r, 0, dat[r,0]);
@@ -1486,6 +1576,7 @@ public class FTW : Window {
 					print("nthcombo.changed.connect:\tselecting item: %d\n", n);
 					r = s.get_index();
 					dat[r,1] = n.to_string();
+					selectedtrns = 99999;
 					forecasted = forecast(dat, forecastlistbox, iso.get_active(), r, ind);
 					graphimg.queue_draw ();
 					//print ( "dat[%d,%d] = %s\n", r, 0, dat[r,1]);
@@ -1518,6 +1609,7 @@ public class FTW : Window {
 							flowbox.get_child_at_index(2).add(wkdcombo);
 						}
 					}
+					selectedtrns = 99999;
 					forecasted = forecast(dat,forecastlistbox, iso.get_active(), r, ind);
 					graphimg.queue_draw ();
 				}
@@ -1533,6 +1625,7 @@ public class FTW : Window {
 					print("fdycombo.changed.connect:\tselecting item: %d\n", n);
 					r = s.get_index();
 					dat[r,3] = n.to_string();
+					selectedtrns = 99999;
 					forecasted = forecast(dat, forecastlistbox, iso.get_active(), r, ind);
 					graphimg.queue_draw ();
 					//print ( "dat[%d,%d] = %s\n", r, 0, dat[r,3]);
@@ -1560,6 +1653,7 @@ public class FTW : Window {
 					}
 					fmocombo.set_active(ffs);
 					doupdate = true;
+					selectedtrns = 99999;
 					forecasted = forecast(dat, forecastlistbox, iso.get_active(), r, ind);
 					graphimg.queue_draw ();
 					//print ( "dat[%d,%d] = %s\n", r, 0, dat[r,4]);
@@ -1576,6 +1670,7 @@ public class FTW : Window {
 					print("fmocombo.changed.connect:\tselecting item: %d\n", n);
 					r = s.get_index();
 					dat[r,5] = n.to_string();
+					selectedtrns = 99999;
 					forecasted = forecast(dat, forecastlistbox, iso.get_active(), r, ind);
 					graphimg.queue_draw ();
 				}
@@ -1595,6 +1690,7 @@ public class FTW : Window {
 					} else {
 						dat[r,6] = ((string) ("%lf").printf(v));
 					}
+					selectedtrns = 99999;
 					forecasted = forecast(dat, forecastlistbox, iso.get_active(), r, ind);
 					graphimg.queue_draw ();
 				}
@@ -1607,7 +1703,8 @@ public class FTW : Window {
 				var r = 0;
 				if (s != null) { r = s.get_index(); }
 				print("amtf.value_changed.connect:\tchanging value to: %f\n", amtf.get_value());
-				dat[r,7] =((string) ("%.2lf").printf(amtf.get_value()));;
+				dat[r,7] =((string) ("%.2lf").printf(amtf.get_value()));
+				selectedtrns = 99999;
 				forecasted = forecast(dat, forecastlistbox, iso.get_active(), r, ind);
 				graphimg.queue_draw ();
 			}
@@ -1620,8 +1717,8 @@ public class FTW : Window {
 				if (s != null) {
 					print("iso.toggled.connect:\ttoggling isolate...\n");
 					r = s.get_index();
+					selectedtrns = 99999;
 					forecasted = forecast(dat, forecastlistbox, iso.get_active(), r, ind);
-					print("iso.toggled.connect is redrawing the graph...\n");
 					graphimg.queue_draw ();
 				}
 			}
@@ -1991,7 +2088,6 @@ public class FTW : Window {
 			}
 		});
 		saveit.clicked.connect(() => {
-			//spopbox.show_all();
 			spop.show_all();
 		});
 		loadit.clicked.connect (() =>  {
@@ -2048,6 +2144,7 @@ public class FTW : Window {
 									row = setuplist.get_row_at_index(0);
 									doupdate = false; setuplist.select_row(row); doupdate = true;
 									selectarow (dat, setuplist, flowbox, evrcombo, nthcombo, wkdcombo, fdycombo, mthcombo, fmocombo, dsc, fye, amtf, grpcombo, catcombo, grpcolb, ind);
+									selectedtrns = 99999;
 									forecasted = forecast(dat,forecastlistbox, iso.get_active(), 0, ind);
 									graphimg.queue_draw ();
 								}
@@ -2068,14 +2165,11 @@ public class FTW : Window {
 				ind = 4;
 				w = s.get_index();
 				print("addrule.clicked.connect:\tadding new rule...\n");
-				//print("selected row is %d\n", w);
 				string[,] tdat = new string[(n+1),13];
 				for (var r = 0; r < dat.length[0]; r++) {
 					for (var c = 0; c < 13; c++) {
 						tdat[r,c] = dat[r,c];
-						//print("%s, ", tdat[r,c]);
 					}
-					//print("\n");
 				}
 				tdat[n,0] = "0";					//every nth
 				tdat[n,1] = "1";					//day of month
@@ -2088,15 +2182,8 @@ public class FTW : Window {
 				tdat[n,8] = "cat1";					//category
 				tdat[n,9] = "grp1";					//group
 				tdat[n,10] = "new recurrence rule";	//description
-				tdat[n,11] = textcolor();				//categorycolor
-				tdat[n,12] = textcolor();				//groupcolor
-				//print("new row populated: %s\n", tdat[n,10]);
-				//for (var r = 0; r < tdat.length[0]; r++) {
-				//	for (var c = 0; c < 11; c++) {
-				//		print("%s, ", tdat[r,c]);
-				//	}
-				//	print("\n");
-				//}
+				tdat[n,11] = textcolor();			//categorycolor
+				tdat[n,12] = textcolor();			//groupcolor
 				dat = tdat;
 				setuplist.foreach ((element) => setuplist.remove (element));
 				for (var e = 0; e < dat.length[0]; e++) {
@@ -2112,6 +2199,7 @@ public class FTW : Window {
 				row = setuplist.get_row_at_index((dat.length[0] - 1));
 				doupdate = false; setuplist.select_row(row); doupdate = true;
 				selectarow (dat, setuplist, flowbox, evrcombo, nthcombo, wkdcombo, fdycombo, mthcombo, fmocombo, dsc, fye, amtf, grpcombo, catcombo, grpcolb, ind);
+				selectedtrns = 99999;
 				forecasted = forecast(dat,forecastlistbox, iso.get_active(), (dat.length[0] - 1), ind);
 				graphimg.queue_draw ();
 			}
@@ -2124,19 +2212,30 @@ public class FTW : Window {
 				ind = 4;
 				w = s.get_index();
 				print("remrule.clicked.connect:\tremoving rule: %s\n",dat[w,9]);
-				//print("selected row is %d\n", w);
 				string[,] tdat = new string[(n-1),13];
 				var i = 0;
 				for (var r = 0; r < dat.length[0]; r++) {
-					//print("r = %d, i = %d\n", r, i);
 					if (r != w) {
 						for (var c = 0; c < 13; c++) {
 							tdat[i,c] = dat[r,c];
-							//print("%s, ", tdat[r,c]);
 						}
 						i++;
-						//print("\n");
 					}
+				}
+				if (tdat.length[0] == 0) {
+					tdat[0,0] = "0";					//every nth
+					tdat[0,1] = "1";					//day of month
+					tdat[0,2] = "0";					//weekday
+					tdat[0,3] = "0";					//from day
+					tdat[0,4] = "1";					//of nth month
+					tdat[0,5] = "0";					//from month
+					tdat[0,6] = "0";					//from year
+					tdat[0,7] = "10.0";					//amount
+					tdat[0,8] = "cat1";					//category
+					tdat[0,9] = "grp1";					//group
+					tdat[0,10] = "new recurrence rule";	//description
+					tdat[0,11] = textcolor();			//categorycolor
+					tdat[0,12] = textcolor();			//groupcolor
 				}
 				dat = tdat;
 				setuplist.foreach ((element) => setuplist.remove (element));
@@ -2150,10 +2249,17 @@ public class FTW : Window {
 				row = setuplist.get_row_at_index((dat.length[0] - 1));
 				doupdate = false; setuplist.select_row(row); doupdate = true;
 				selectarow (dat, setuplist, flowbox, evrcombo, nthcombo, wkdcombo, fdycombo, mthcombo, fmocombo, dsc, fye, amtf, grpcombo, catcombo, grpcolb, ind);
+				selectedtrns = 99999;
 				forecasted = forecast(dat,forecastlistbox, iso.get_active(), (dat.length[0] - 1), ind);
 				graphimg.queue_draw ();
 			}
 		});
+// custom reflow for bottom row of params
+// set row idx to 0
+// get container size x as cx
+// for each conjoined widget add its minimum size to wx,
+// if wx > cx idx += 1
+// move widgets to row idx of grid
 	}
 }
 public void main(string[] args) {
