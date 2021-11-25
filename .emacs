@@ -1,4 +1,4 @@
-;; the one reason I'm using this program
+;; the only reason I'm using this geriatric program
 (require 'org)
 (setq org-auto-renumber-ordered-lists nil)
 (global-set-key (kbd "<f10>") 'org-export-dispatch)
@@ -9,9 +9,6 @@
 (require 'package)
 (add-to-list 'package-archives '("melpa-stable" . "https://stable.melpa.org/packages/") t)
 (package-initialize)
-
-;; indent guides
-;;(add-hook 'prog-mode-hook 'highlight-indent-guides-mode)
 
 ;; red
 (load-file "~/.emacs.d/red-mode.el")
@@ -27,10 +24,10 @@
 ;; syntax highlighting in blocks
 (setq org-src-fontify-natively t)
 
-;; curb your scrolling
+;; scroll = scroll
 (setq mouse-wheel-progressive-speed nil)
 
-;; tab = fucking tab. 
+;; tab = fucking tab,
 ;; if I want spaces I'll rabbitpunch the fucking spacebar like a fucking retard...
 (setq-default indent-tabs-mode t)
 (setq-default tab-stop-list (number-sequence 4 200 4))
@@ -42,6 +39,7 @@
 ;; copied from : http://ergoemacs.org/emacs/emacs_tabs_space_indentation_setup.html
 ;; only thing that actually unbreaks the tab !
 ;; however it breaks orgmode :(
+;; have to use in specific mode hooks
 (defun my-insert-tab-char ()
 	"Insert a tab char. (ASCII 9, \t)"
 	(interactive)
@@ -150,7 +148,7 @@
 ;; save desktop state
 (desktop-save-mode 1)
 
-;; hi-line mode
+;; hi-line mode -- looks nasty in latest emacs
 ;; (global-hl-line-mode 0)
 
 (custom-set-variables
@@ -163,10 +161,8 @@
  '(ansi-color-names-vector
    ["#242424" "#e5786d" "#95e454" "#cae682" "#8ac6f2" "#333366" "#ccaa8f" "#f6f3e8"])
  '(custom-enabled-themes '(wombat))
- '(custom-safe-themes
-   '("fe1c13d75398b1c8fd7fdd1241a55c286b86c3e4ce513c4292d01383de152cb7" default))
  '(package-selected-packages
-   '(highlight-indentation srcery-theme overcast-theme atom-one-dark-theme abyss-theme vscode-dark-plus-theme twilight-anti-bright-theme dracula-theme org))
+   '(highlight-indentation org))
  '(tool-bar-mode nil))
 (custom-set-faces
  ;; custom-set-faces was added by Custom.
