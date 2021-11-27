@@ -1,9 +1,9 @@
-// gtk4 eval: it fixed some things, broke and/or ratfucked many, many other things.
-// try doing something simple like button.color = red...
-//
-// the whole project also has an odious whiff of ideology about it thats very offputting.
-//
-// very tempted to do this all in Cairo: one drawarea in a window... cook your Pinephone.
+// gtk4 eval: 
+// it fixed some things, broke and/or ratfucked many, many other things.
+// try doing something simple like button.color = red
+// It's like dealing with ascended-from-reality middle-management... or lecturers.
+// BUT: its fast, looks good, and alternatives suck even more in their own special ways.
+
 
 using Gtk;
 
@@ -414,10 +414,14 @@ public class FTW : Gtk.ApplicationWindow {
 			ind = 4;
 			string h = dat[r,12];
 			if (h.strip() == "") { h = textcolor(); print("    groupcolorbutton.button_press_event.connect:\tgroup color data not found: %s", dat[r,12]); }
+			
+// change button background color: the new prescribed css technique doesn't work:
+
 			csstxt = ".buttonbg { background: %s; }".printf(h);
 			groupcolorcssprovider.load_from_data (csstxt.data);
 			groupcolorbutton.get_style_context().add_provider(groupcolorcssprovider, Gtk.STYLE_PROVIDER_PRIORITY_USER);	
 			groupcolorbutton.get_style_context().add_class("buttonbg");
+
 			var g = Gdk.RGBA();
 			if (g.parse(h)) {
 				doupdate = false;
