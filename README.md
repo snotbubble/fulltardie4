@@ -13,7 +13,7 @@ status
 - usable, but no safety atm; you can segfault it without too much effort
 - on the pinephone its usable at 150% display scale, 
 - graph touch interaction not implemented yet, 
-- param ui still needs a lot of work to make it work on a small screen
+- param ui still needs a lot of work to make it work on a small screen (investigating gtk4)
 
 usage (pre-release, linux only)
 - mkdir ~/Desktop/fulltardie && cd ~/Desktop/fulltardie
