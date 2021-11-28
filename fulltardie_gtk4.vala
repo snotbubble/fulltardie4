@@ -2,7 +2,7 @@
 // it fixed some things, broke and/or ratfucked many, many other things.
 // try doing something simple like button.color = red
 // It's like dealing with ascended-from-reality middle-management... or lecturers.
-// BUT: its fast, looks good, and alternatives suck even more in their own special ways.
+// BUT: its fast, looks good, alternatives are worse for now.
 
 
 using Gtk;
@@ -17,6 +17,7 @@ string ttcolor () { return "#112633"; }
 void rendersetuplist(string[,] d, Gtk.ListBox b, int ind) {
 	var tabi = ("%-" + ind.to_string() + "s").printf("");
 	print("%srendersetuplist started...\n",tabi);
+	var tabn = ("%-" + (ind + 4).to_string() + "s").printf("");
 	var bs = b.get_selected_row();
 	var bsi = 0;
 	if (bs != null) { bsi = bs.get_index(); }
@@ -29,14 +30,24 @@ void rendersetuplist(string[,] d, Gtk.ListBox b, int ind) {
 		var rl = (Label) row.get_child();
 		rl.set_markup(mqq);
 		var g = Gdk.RGBA();
-		g.parse(clr);
-		g.alpha = ((float) 0.1);
-		//row.override_background_color(NORMAL, g);
-		g.parse(textcolor());
-		g.alpha = ((float) 0.5);
-		//row.override_background_color(PRELIGHT, g);
-		g.alpha = ((float) 1.0);
-		//row.override_background_color(SELECTED, g);
+		if (g.parse(clr)) {
+
+// brace yourselves for the modern (Placement p = new Placement; p = OVER; Position o = new position; o.placement = p; thinking.set_position(o)) programmings...	
+
+			var rowcssprovider = new Gtk.CssProvider();
+			string rownormalcsstxt = ".wut { color: %s; background: rgba(%d,%d,%d,0.1); }".printf(clr,((int) (g.red*255.0)), ((int) (g.green*255.0)), ((int) (g.blue*255.0)));
+			rownormalcsstxt = rownormalcsstxt.concat("\n.wut:selected { color:", clr, "; background: ", textcolor(), "; }");
+			rowcssprovider.load_from_data (rownormalcsstxt.data);
+			row.get_style_context().add_provider(rowcssprovider, Gtk.STYLE_PROVIDER_PRIORITY_USER);	
+			row.get_style_context().add_class("wut");
+			row.get_style_context().add_class("wut:selected");
+			string tabx = ("%-" + (ind + 8).to_string() + "s").printf("");
+			print("%srendersetuplist:\tlist row style is:\n%s%s\n", tabn, tabx, (row.get_style_context().to_string(NONE)));
+		}
+// fuck I hate OOP
+// the avove used to be : row.override_background_color(NORMAL, g);
+// in red its: row/color: g
+// and red uses gtk on linux
 	}
 	print("%srendersetuplist completed.\n", tabi);
 }
@@ -95,26 +106,19 @@ void selectarow (string[,] dat, Gtk.ListBox b, Gtk.FlowBox fb, Gtk.ComboBoxText 
 	string[] fmo = {"from this month", "from january", "from february", "from march", "from april", "from may", "from june", "from july", "from august", "from september", "from october", "from november", "from december"};
 	string[] omo = {"of this month", "of january", "of february", "of march", "of april", "of may", "of june", "of july", "of august", "of september", "of october", "of november", "of december"};
 	var ffs = int.parse(dat[i,2]);
+// note: remove shrinks the child count instead of clearing it, so remove 1 & remove 1 is the same as remove 1 & remove 2 in gtk3
 	if (ffs > 7) {
 		if (fb.get_child_at_index(1).get_child() == nthc) {
-			//fb.get_child_at_index(1).remove(nthc);
 			fb.remove(fb.get_child_at_index(1));
-			//fb.get_child_at_index(2).remove(wkdc);
-			fb.remove(fb.get_child_at_index(2));
-			//fb.get_child_at_index(1).add(wkdc);
+			fb.remove(fb.get_child_at_index(1));
 			fb.insert(wkdc,1);
-			//fb.get_child_at_index(2).add(nthc);
 			fb.insert(nthc,2);
 		}
 	} else {
 		if (fb.get_child_at_index(1).get_child() == wkdc) {
-			//fb.get_child_at_index(1).remove(wkdc);
 			fb.remove(fb.get_child_at_index(1));
-			//fb.get_child_at_index(2).remove(nthc);
-			fb.remove(fb.get_child_at_index(2));
-			//fb.get_child_at_index(1).add(nthc);
+			fb.remove(fb.get_child_at_index(1));
 			fb.insert(nthc,1);
-			//fb.get_child_at_index(2).add(wkdc);
 			fb.insert(wkdc,2);
 		}
 	}
@@ -174,8 +178,6 @@ public class fulltardie : Gtk.Application {
 
 public class FTW : Gtk.ApplicationWindow {
 
-
-
 	string[,] dat = {
 		{"1","0","7","0","1","7","0","-5.00","cat1","group1","every sunday of every month starting from this september","",""},
 		{"1","14","0","21","0","5","2021","200.0","cat2","group2","every 14th day from the 21st of May 2021","",""},
@@ -196,14 +198,7 @@ public class FTW : Gtk.ApplicationWindow {
 	string[] fmo = {"from this month", "from january", "from february", "from march", "from april", "from may", "from june", "from july", "from august", "from september", "from october", "from november", "from december"};
 	string[] omo = {"of this month", "of january", "of february", "of march", "of april", "of may", "of june", "of july", "of august", "of september", "of october", "of november", "of december"};
 
-	//string textcolor = "#55BDFF";
-	//string rowcolor ="#1A3B4F";
-	//string ttcolor = "#112633";
-	private string thisgroupcolor = "#CCCCCC";
-
 	private int ind = 4;
-
-	//private Popover groupcolorpopover;
 
 // FTW is already defined as a window, so dunno why it has to be redefined here as a function that returns its parent... very odd.
 
@@ -217,7 +212,6 @@ public class FTW : Gtk.ApplicationWindow {
 //           |
 //  [ widgets & events ]
 
-
 // gtk4 =
 // 
 //        [ main ]
@@ -226,7 +220,7 @@ public class FTW : Gtk.ApplicationWindow {
 //           |
 //       [ window ]
 //           |
-// [ window(application) = object(application) ] <----- what in the actual ass...
+// [ window(application) => object(application) ] <----- what in the actual ass...
 //           |
 //  [ widgets & events ]
 
@@ -238,9 +232,6 @@ public class FTW : Gtk.ApplicationWindow {
 // anyway, the ui:
 
 	construct {
-		var groupcolorcssprovider = new Gtk.CssProvider();
-	
-		//Gtk.StyleContext.add_provider(groupcolorcssprovider,Gtk.STYLE_PROVIDER_PRIORITY_USER);
 
 		this.title = "fulltardie";
 		this.set_default_size(360, 720);
@@ -295,6 +286,21 @@ public class FTW : Gtk.ApplicationWindow {
 		dsc.hexpand = true;
 
 		Gtk.ToggleButton iso = new Gtk.ToggleButton.with_label("ISO");
+		var isocssprovider = new Gtk.CssProvider();
+		string isocsstxt = ".GtkToggleButton { background: %s; }".printf("#FF000005");
+		isocssprovider.load_from_data (isocsstxt.data);
+		iso.get_style_context().add_provider(isocssprovider, Gtk.STYLE_PROVIDER_PRIORITY_USER);	
+		iso.get_style_context().add_class("GtkToggleButton");
+		iso.toggled.connect(() => {
+			if (iso.get_active()) { 
+				print("iso.toggled.connect:\ttrue\n");
+				isocsstxt = ".GtkToggleButton { background: %s; }".printf("#FF000088");
+			} else { 
+				isocsstxt = ".GtkToggleButton { background: %s; }".printf("#FF000005");
+				print("iso.toggled.connect:\tfalse\n"); 
+			}
+			isocssprovider.load_from_data (isocsstxt.data);
+		});
 
 		Gtk.Button ads = new Gtk.Button.with_label("+");
 		ads.set_size_request(10,10);
@@ -347,7 +353,6 @@ public class FTW : Gtk.ApplicationWindow {
 		parammid.set_orientation(Orientation.HORIZONTAL);
 		parammid.min_children_per_line = 1;
 		parammid.max_children_per_line = 7;
-
 		parammid.insert(fye,0);
 		parammid.insert(fmocombo,0);
 		parammid.insert(mthcombo,0);
@@ -359,8 +364,10 @@ public class FTW : Gtk.ApplicationWindow {
 // group color popover
 
 // swatch background color (26, 59, 79)
-// setting background color directly is busted/disabled in gtk4 for political reasons,
-// investigating the current prescribed method...
+// setting background color directly was ratfucked in gtk4 for ideological reasons,
+// the prescribed method of using css will add a fair bit of cruft,
+// if it janks too much with large forecasts I'll re-write the lists in Cairo, cook your Pinephone
+// there's no text-entry to deal with, so Cairo should be pretty slick
 
 		//groupcolorbutton.override_background_color(NORMAL, www); 
 		Gtk.Popover groupcolorpopover = new Gtk.Popover();
@@ -401,26 +408,26 @@ public class FTW : Gtk.ApplicationWindow {
 
 // futile attempt to set button color:
 
+		var groupcolorcssprovider = new Gtk.CssProvider();
+		//string groupcolorcsstxt = ".huh { image: none; background: %s; }".printf("#FF0000");
+		string groupcolorcsstxt = ".huh { background-image: none; background: none; background-color: %s;}".printf("#FF0000");
+		groupcolorcssprovider.load_from_data (groupcolorcsstxt.data);
 		groupcolorbutton.get_style_context().add_provider(groupcolorcssprovider, Gtk.STYLE_PROVIDER_PRIORITY_USER);	
-		string csstxt = ".buttonbg { image: -gtk-gradient (linear, left top, left bottom, from (shade (#FF0000, 1.1)),to (shade (#FF0000, 1.05))); background: %s; }".printf("#FF0000");
-		groupcolorcssprovider.load_from_data (csstxt.data);
-		groupcolorbutton.get_style_context().add_class("buttonbg");
+		groupcolorbutton.get_style_context().add_class("huh");
+		print("groupcolorbutton:\tmenubutton style is:\n\t%s\n", (groupcolorbutton.get_style_context().to_string(RECURSE)));
 		groupcolorbutton.popover = groupcolorpopover;
-
 		groupcolorbutton.activate.connect(() => {
 			var s = setuplist.get_selected_row();
 			var r = 0;
 			if (s != null) { r = s.get_index(); }
 			ind = 4;
 			string h = dat[r,12];
-			if (h.strip() == "") { h = textcolor(); print("    groupcolorbutton.button_press_event.connect:\tgroup color data not found: %s", dat[r,12]); }
+			if (h.strip() == "") { h = textcolor(); print("groupcolorbutton.button_press_event.connect:\tgroup color data not found: %s", dat[r,12]); }
 			
 // change button background color: the new prescribed css technique doesn't work:
-
-			csstxt = ".buttonbg { background: %s; }".printf(h);
-			groupcolorcssprovider.load_from_data (csstxt.data);
-			groupcolorbutton.get_style_context().add_provider(groupcolorcssprovider, Gtk.STYLE_PROVIDER_PRIORITY_USER);	
-			groupcolorbutton.get_style_context().add_class("buttonbg");
+			//groupcolorcsstxt = ".checked { background-image: radial-gradient(farthest-side, %s 96%, transparentize(%s,1 )); background: %s;}".printf(h,h,h);
+			//groupcolorcsstxt = ".GtkMenuButton { background: %s; }".printf(h);
+			//groupcolorcssprovider.load_from_data (groupcolorcsstxt.data);
 
 			var g = Gdk.RGBA();
 			if (g.parse(h)) {
@@ -500,7 +507,7 @@ public class FTW : Gtk.ApplicationWindow {
 		hdiv.start_child = notebook;
 		hdiv.end_child = params;
 		hdiv.resize_end_child = true;
-		hdiv.position = 580;
+		hdiv.position = 450;
 		hdiv.wide_handle = true;
 
 // add ui to window
@@ -521,7 +528,6 @@ public class FTW : Gtk.ApplicationWindow {
 					}
 					string h = dat[row.get_index(),12];
 					if (h.strip() == "") { h = textcolor(); print("    groupcolorbutton.button_press_event.connect:\tgroup color data not found: %s", dat[row.get_index(),12]); }
-					thisgroupcolor = h;
 					selectarow (dat, setuplist, parammid, evrcombo, nthcombo, wkdcombo, fdycombo, mthcombo, fmocombo, dsc, fye, amountspinner, groupcombo, catcombo, groupcolorbutton, ind);
 				}
 			}
