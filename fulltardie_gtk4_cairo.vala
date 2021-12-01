@@ -9,78 +9,92 @@
 // other features not checked; priority is to get the new viwers up & running
 
 // TODO
-// - [?] function ui input as globals to reduce cruft : functions not liking it atm
+// - [X] function ui input as globals instead of args
 // - [X] clean up names
 // - [X] clean up events
 // - [!] replace listboxes with drawareas
-// - [!] make setuplistdraw function
-// - [!] make forecastlistdraw function
+// - [X] make setuplist pre-render function
+// - [!] make forecastlist pre-render function
 // - [!] convert listrenderers to preprocessors
+// - [X] stop touchtap and touchdrag from fighting each other
 // - [ ] add checkssrr; minmax it
 // - [ ] clean out test code & comments
 
 using Gtk;
 
-//void main() {
-
-
-
-// use 4char vars topside
-// use 3char vars in functions
-// use 2char vars in events
-
 // vars used everywhere:
 
-bool				doup;		// toggle ui events
-bool				spew;		// toggle diagnostics
-string				txtc;		// text color "#55BDFF"
-string				rowc;		// row color "#1A3B4F"
-string				tltc;		// tooltip color "#112633"
-string[,]			sdat;		// source rule input, user defined sorting
-string[,]			fdat;		// forecasted output, always sorted by date
-string[,]			ldat;		// formatted setup list for drawing
-string[,]			idat;		// formatted forecast list for drawing
-Gdk.RGBA			rgba;		// misc. color
-int					ssrr;		// current rule
+bool				doup;	// toggle ui events
+bool				spew;	// toggle diagnostics
+bool				hard;	// toggle draw diagnostics
+string				txtc;	// text color "#55BDFF"
+string				rowc;	// row color "#1A3B4F"
+string				tltc;	// tooltip color "#112633"
+string[,]			sdat;	// source rule input, user defined sorting
+string[,]			fdat;	// forecasted output, always sorted by date
+string[,]			ldat;	// formatted setup list for drawing
+string[,]			idat;	// formatted forecast list for drawing
+Gdk.RGBA			rgba;	// misc. color
+int					ssrr;	// current rule
 
-// ui often changed by functions
-// these aren't properly read by functions (is-widget failed)
+// ui
 
-Gtk.FlowBox			pmid;		// mid parameter box 	changed by selectrule
-Gtk.Notebook		tabp;		// tab panel 			checked by selectrule and forecast
-Gtk.DrawingArea		slst;		// setup list			redrawn by various params
-Gtk.DrawingArea		flst;		// forecast list		redrawn by forecast
-Gtk.DrawingArea		gimg;		// graph				redrawn by forecast
-Gtk.ToggleButton	tiso;		// isolate toggle		checked by forecast
-Gtk.Entry			edsc;		// rule name			changed by selectedrule
-Gtk.ComboBoxText	cevr;		// every				changed by selectedrule
-Gtk.ComboBoxText	cnth;		// nth					changed by selectedrule
-Gtk.ComboBoxText	cwkd;		// weekday				changed by selectedrule
-Gtk.ComboBoxText	cfdy;		// fromday				changed by selectedrule
-Gtk.ComboBoxText	cmth;		// ofmonth				changed by selectedrule
-Gtk.ComboBoxText	cfmo;		// frommonth			changed by selectedrule
-Gtk.SpinButton		sfye;		// from year			changed by selectedrule
-Gtk.ComboBoxText	cgrp;		// groups				changed by selectedrule
-Gtk.ComboBoxText	ccat;		// categories			changed by selectedrule
-Gtk.SpinButton		samt;		// amount				changed by selectedrule
-Gtk.ToggleButton	tcol;		// color toggle			changed by selectrule
-Gtk.Box				xcol;		// color expander		checked by selectedrule
-Gtk.Scale			rrrr;		// red slider			changed by selectedrule
-Gtk.Scale			gggg;		// green slider			changed by selectedrule
-Gtk.Scale			bbbb;		// blue slider			changed by selectedrule
-Gtk.Entry			hhhh;		// hex field			changed by selectedrule
+Gtk.Paned			hdiv;	// top level container(s) 
+Gtk.Notebook		tabp;	//   viewer toplever container			checked by selectrule and forecast
+Gtk.Label			lsls;	//     label
+Gtk.Label			lfcl;	//     label
+Gtk.Label			limg;	//     label
+Gtk.DrawingArea		slst;	//     setup list						redrawn by various
+Gtk.DrawingArea		flst;	//     forecast list					redrawn by various
+Gtk.DrawingArea		gimg;	//     graph							redrawn by various
+Gtk.ScrolledWindow  xscr;	//   parameter toplevel container
+Gtk.Grid			pgrd;	//     parameter layout container
+Gtk.Box				ptop;	//       parameter sub container
+Gtk.Entry			edsc;	//         rule name					changed by selectrule
+Gtk.Box				pctr;	//       parameter sub container
+Gtk.Button			badd;	//         add rule
+Gtk.Button			brem;	//         rem rule
+Gtk.ToggleButton	tiso;	//         isolate toggle				checked by forecast
+Gtk.ToggleButton	tcol;	//         color toggle					changed by selectrule
+Gtk.Box				xcol;	//       parameter sub container		checked by selectrule, toggled by tcol
+Gtk.Scale			rrrr;	//         red							changed by selectrule
+Gtk.Scale			gggg;	//         green						changed by selectrule
+Gtk.Scale			bbbb;	//         blue							changed by selectrule
+Gtk.Entry			hhhh;	//         hex							changed by selectrule
+Gtk.FlowBox			pmid;	//       parameter sub container		changed by selectrule
+Gtk.ComboBoxText	cevr;	//         every						changed by selectrule
+Gtk.ComboBoxText	cnth;	//         nth							changed by selectrule
+Gtk.ComboBoxText	cwkd;	//         weekday						changed by selectrule
+Gtk.ComboBoxText	cfdy;	//         fromday						changed by selectrule
+Gtk.ComboBoxText	cmth;	//         ofmonth						changed by selectrule
+Gtk.ComboBoxText	cfmo;	//         frommonth					changed by selectrule
+Gtk.SpinButton		sfye;	//         from year					changed by selectrule
+Gtk.Adjustment		yadj;	//           value range
+Gtk.FlowBox			plow;	//       parameter sub container
+Gtk.Box				xgrp;	//         parameter sub container
+Gtk.Label			lgrp;	//           label
+Gtk.ComboBoxText	cgrp;	//           groups						changed by selectrule
+Gtk.Entry			egrp;	//             group text
+Gtk.Box				xcat;	//         parameter sub container
+Gtk.Label			lcat;	//           label
+Gtk.ComboBoxText	ccat;	//           categories					changed by selectrule
+Gtk.Entry			ecat;	//             category text
+Gtk.Box				xamt;	//         parameter sub container
+Gtk.Label			lamt;	//           label
+Gtk.SpinButton		samt;	//           amount						changed by selectrule
+Gtk.Adjustment		aadj;	//             value range
 
 // utility lists
 
-string[] 			ofmo;		// of month
-string[]			frmo;		// from month
-string[]			shmo;		// short month list
-int[]				ldom;		// last day of each month
+string[] 			ofmo;	// of month
+string[]			frmo;	// from month
+string[]			shmo;	// short month list
+int[]				ldom;	// last day of each month
 
 // css providers for ui that doesn't need to be draw-area
 
-Gtk.CssProvider 	tcsp;		// color toggle css
-Gtk.CssProvider 	icsp;		// iso toggle css
+Gtk.CssProvider 	tcsp;	// color toggle css
+Gtk.CssProvider 	icsp;	// iso toggle css
 
 
 // data returned from findnextdate
@@ -560,23 +574,23 @@ void updateldat (int ind) {
 	var tabni = ("%-" + (ind + 4).to_string() + "s").printf("");
 	if (spew) { print("%supdateldat started...\n",tabi); }
 	//string[,] ldat = new string[sdat.length[0],3];
-	ldat = new string[sdat.length[0],3];
+	ldat = new string[sdat.length[0],2];
 	if (spew) { print("%supdateldat:\tsdat.length[0] : %d\n",tabni,sdat.length[0]); }
 	for (var s = 0; s < sdat.length[0]; s++) {
 		string rfg = "%s%s".printf(sdat[s,12],"FF");
-		string rbg = "%s%s".printf(sdat[s,12],"55");
+		//string rbg = "%s%s".printf(sdat[s,12],"55");
 		rgba = Gdk.RGBA();
 		if (rgba.parse(rfg) == false) { 
 			rfg = "%s%s".printf(txtc,"FF");
-			rbg = "%s%s".printf(txtc,"55"); 
+			//rbg = "%s%s".printf(txtc,"55"); 
 		}
-		if (ssrr == s) {  
-			rfg = "%s%s".printf(rowc,"FF");
-			rbg = "%s%s".printf(txtc,"FF"); 
-		}
+		//if (ssrr == s) {  
+			//rfg = "%s%s".printf(rowc,"FF");
+			//rbg = "%s%s".printf(txtc,"FF"); 
+		//}
 		ldat[s,0] = sdat[s,10];
 		ldat[s,1] = rfg;
-		ldat[s,2] = rbg;
+		//ldat[s,2] = rbg;
 	}
 	if (spew) { print("%supdateldat:\tldat.length[0] : %d\n",tabni,ldat.length[0]); }
 	if (spew) { print("%supdateldat completed.\n", tabi); }
@@ -678,12 +692,12 @@ void adjustgroupcolor ( double rrr, double ggg, double bbb, string hhh, bool x, 
 
 void selectrow (int ind) {
 	var tabi = ("%-" + ind.to_string() + "s").printf("");
-	var nind = ind + 4;
-	var tabni = ("%-" + nind.to_string() + "s").printf("");
+	var nind = ind + 8;
+	var tabni = ("%-" + (ind + 4).to_string() + "s").printf("");
 	if (spew) { 
 		print("%sselectrow started...\n",tabi); 
-		print("%sselectrow:\tselecting rule: %d\n",tabi,ssrr);
-		print("%sselectrow:\tsdat.length[0] = %d\n",tabi,sdat.length[0]);
+		print("%sselectrow:\tselecting rule: %d\n",tabni,ssrr);
+		print("%sselectrow:\tsdat.length[0] = %d\n",tabni,sdat.length[0]);
 	}
 
 // block any accidental event triggering
@@ -694,7 +708,7 @@ void selectrow (int ind) {
 	var ffs = int.parse(sdat[ssrr,2]);
 
 	if (spew) { 
-		print("%sselectrow:\tchecking weekday rule: %s\n",tabi,sdat[ssrr,2]);
+		print("%sselectrow:\tchecking weekday rule: %s\n",tabni,sdat[ssrr,2]);
 	}
 
 	if (ffs > 7) {
@@ -714,7 +728,7 @@ void selectrow (int ind) {
 	}
 
 	if (spew) { 
-		print("%sselectrow:\tupdating date combos...\n",tabi);
+		print("%sselectrow:\tupdating date combos...\n",tabni);
 	}
 
 	ffs = int.parse(sdat[ssrr,0]);
@@ -742,7 +756,7 @@ void selectrow (int ind) {
 // name field = description
 
 	if (spew) { 
-		print("%sselectrow:\tsetting rule name: %s\n",tabi,sdat[ssrr,10]);
+		print("%sselectrow:\tsetting rule name: %s\n",tabni,sdat[ssrr,10]);
 	}
 
 	edsc.text = sdat[ssrr,10];
@@ -755,17 +769,21 @@ void selectrow (int ind) {
 		sfye.set_value(int.parse(sdat[ssrr,6]));
 	}
 
-// groups and group selection
+// categories and category selection
 
+	if (spew) { print("%sselectrow:\tupdating category list...\n",tabni);}
 	string[] ccl = getchoicelist(8, nind);
 	ccat.remove_all();
 	for (var j = 0; j < ccl.length; j++) {
 		ccat.append_text(ccl[j]);
-		if (ccl[j] == sdat[ssrr,8]) { ccat.set_active(j); }
+	}
+	for (var j = 0; j < ccl.length; j++) {
+		if (ccl[j] == sdat[ssrr,8]) { ccat.set_active(j); break; }
 	}
 
-// categories and category selection
+// groups and group selection
 
+	if (spew) { print("%sselectrow:\tupdating group list...\n",tabni);}
 	string[] gg = getchoicelist(9, nind);
 	cgrp.remove_all();
 	for (var k = 0; k < gg.length; k++) {
@@ -777,30 +795,34 @@ void selectrow (int ind) {
 
 // amount
 
+	if (spew) { print("%sselectrow:\tsetting amount: %s\n",tabni,sdat[ssrr,7]);}
 	samt.set_value( double.parse(sdat[ssrr,7]) );
 
 // group color to tcol
 
+	if (spew) { print("%sselectrow:\tfetching group color: %s\n",tabni,sdat[ssrr,12]);}
 	var clr = sdat[ssrr,12];
 	rgba = Gdk.RGBA();
 	if (rgba.parse(clr) == false) { clr = txtc; rgba.parse(clr); } 
-
+	if (spew) { print("%sselectrow:\tapplying color to params: %s\n",tabni,clr);}
 	string ccc = ".col { background: %s%s; }".printf(clr,"FF");
 	if (tcol.get_active()) {	
 		hhhh.text = clr;
 		rrrr.adjustment.value = ((double) ((int) (rgba.red * 255.0)));
 		gggg.adjustment.value = ((double) ((int) (rgba.green * 255.0)));
 		bbbb.adjustment.value = ((double) ((int) (rgba.blue * 255.0)));
-		xcol.visible = true;
+		if (spew) { print("%sselectrow:\tset sliders to: (%f,%f,%f)\n",tabni,rrrr.adjustment.value,gggg.adjustment.value,bbbb.adjustment.value);}
+		//xcol.visible = true;
 	} else {
 		ccc = ".col { background: %s%s; }".printf(clr,"55");
-		xcol.visible = false;
+		if (spew) { print("%sselectrow:\ttcol is OFF\n",tabni);}
+		//xcol.visible = false;
 	}
 	tcsp.load_from_data(ccc.data);
 
-// ldat = {"label", "#foreground", "#background"}
+// ldat = {"label", "#foreground"}
 
-	updateldat(nind);
+	//updateldat(nind);
 
 	doup = true;
 	if (spew) { print("%sselectrow completed.\n", tabi); }
@@ -830,19 +852,15 @@ string moi (int i) {
 public class fulltardie : Gtk.Application {
 
 	construct {
-		application_id = "com.fulltardie";
+		application_id = "com.snotbubble.fulltardie";
 		flags = ApplicationFlags.FLAGS_NONE;
 	}
 }
-//public override void activate () {
-		//var ftwin = new Gtk.Window();
 
 
 public class ftwin : Gtk.ApplicationWindow {
 	public ftwin (Gtk.Application fulltardie) {Object (application: fulltardie);}
 	construct {
-		//Gtk.Application fulltardie = new Gtk.Application("fulltardie",FLAGS_NONE);
-		//Gtk.ApplicationWindow ftwin = new Gtk.ApplicationWindow(fulltardie);
 
 		spew = true;
 		doup = false;
@@ -1180,9 +1198,9 @@ public class ftwin : Gtk.ApplicationWindow {
 
 // controls
 
+		badd = new Gtk.Button.with_label("+");
+		brem = new Gtk.Button.with_label("-");
 		tiso = new Gtk.ToggleButton.with_label("ISO");
-		Gtk.Button badd = new Gtk.Button.with_label("+");
-		Gtk.Button brem = new Gtk.Button.with_label("-");
 
 // group color controls
 
@@ -1214,7 +1232,9 @@ public class ftwin : Gtk.ApplicationWindow {
 
 // color swatch, retains css for now, replace with a suitable alternative
 
-		tcol = new Gtk.ToggleButton.with_label("▼");
+		//tcol = new Gtk.ToggleButton.with_label("▼");
+		tcol = new Gtk.ToggleButton();
+		tcol.set_label("▼");
 		string cssx = ".col { background: %s%s; }".printf(hxxx,"55");
 		tcsp.load_from_data(cssx.data);
 		tcol.get_style_context().add_provider(tcsp, Gtk.STYLE_PROVIDER_PRIORITY_USER);	
@@ -1231,22 +1251,22 @@ public class ftwin : Gtk.ApplicationWindow {
 // rule component combos
 
 		cevr = new ComboBoxText();
-		for (var j = 0; j < evr.length; j++) {cevr.append_text(evr[j]);}
-		cevr.set_active(0);
 		cnth = new ComboBoxText();
-		for (var j = 0; j < nth.length; j++) {cnth.append_text(nth[j]);}
-		cnth.set_active(0);
 		cwkd = new ComboBoxText();
-		for (var j = 0; j < wkd.length; j++) {cwkd.append_text(wkd[j]);}
-		cwkd.set_active(0);
 		cfdy = new ComboBoxText();
-		for (var j = 0; j < fdy.length; j++) {cfdy.append_text(fdy[j]);}
-		cfdy.set_active(0);
 		cmth = new ComboBoxText();
-		for (var j = 0; j < mth.length; j++) {cmth.append_text(mth[j]);}
-		cmth.set_active(0);
 		cfmo = new ComboBoxText();
+		for (var j = 0; j < evr.length; j++) {cevr.append_text(evr[j]);}
+		for (var j = 0; j < nth.length; j++) {cnth.append_text(nth[j]);}
+		for (var j = 0; j < wkd.length; j++) {cwkd.append_text(wkd[j]);}
+		for (var j = 0; j < fdy.length; j++) {cfdy.append_text(fdy[j]);}
+		for (var j = 0; j < mth.length; j++) {cmth.append_text(mth[j]);}
 		for (var j = 0; j < frmo.length; j++) {cfmo.append_text(frmo[j]);}
+		cevr.set_active(0);
+		cnth.set_active(0);
+		cwkd.set_active(0);
+		cfdy.set_active(0);
+		cmth.set_active(0);
 		cfmo.set_active(0);
 
 /* 
@@ -1259,7 +1279,7 @@ public class ftwin : Gtk.ApplicationWindow {
 		cfmo.set_wrap_width(2); 
 */
 
-		Gtk.Adjustment yadj = new Gtk.Adjustment(2021,1990,2100,1,5,1);
+		yadj = new Gtk.Adjustment(2021,1990,2100,1,5,1);
 		yadj.set_value((int) (GLib.get_real_time() / 31557600000000) + 1970);
 		sfye = new Gtk.SpinButton(yadj,1,0);
 
@@ -1280,7 +1300,7 @@ public class ftwin : Gtk.ApplicationWindow {
 
 // group 
 
-		Gtk.Label lgrp = new Label("grp");
+		lgrp = new Label("grp");
 		lgrp.set_halign(START);
 		lgrp.set_max_width_chars(8);
 		lgrp.set_hexpand(false);
@@ -1288,39 +1308,39 @@ public class ftwin : Gtk.ApplicationWindow {
 		lgrp.margin_end = 10;
 		cgrp = new ComboBoxText.with_entry();
 		cgrp.set_halign(START);
-		var egrp = (Entry) cgrp.get_child();
+		egrp = (Entry) cgrp.get_child();
 		egrp.set_halign(START);
 		egrp.set_width_chars(8);
 		egrp.set_hexpand(false);
 
 // category
 
-		Gtk.Label lcat = new Label("cat");
+		lcat = new Label("cat");
 		lcat.set_halign(START);
 		lcat.set_max_width_chars(8);
 		lcat.set_hexpand(false);
 		lcat.set_size_request(10,10);
 		lcat.margin_end = 10;
 		ccat = new ComboBoxText.with_entry();
-		var ecat = (Entry) ccat.get_child();
+		ecat = (Entry) ccat.get_child();
 		ecat.set_halign(START);
 		ecat.set_width_chars(8);
 		ecat.set_hexpand(false);
 
 // amount
 
-		Gtk.Label lamt = new Label("amt");
+		lamt = new Label("amt");
 		lamt.set_halign(START);
 		lamt.set_max_width_chars(8);
 		lamt.set_hexpand(false);
 		lamt.set_size_request(10,10);
 		lamt.margin_end = 10;
-		Gtk.Adjustment aadj = new Gtk.Adjustment(0.0,-100000,100000.0,10.0,100.0,1.0);
+		aadj = new Gtk.Adjustment(0.0,-100000,100000.0,10.0,100.0,1.0);
 		samt = new Gtk.SpinButton(aadj,1.0,2);
 
 // group container
 
-		Gtk.Box xgrp = new Gtk.Box(HORIZONTAL,0);
+		xgrp = new Gtk.Box(HORIZONTAL,0);
 		xgrp.append(lgrp);
 		xgrp.append(cgrp);
 		xgrp.set_halign(START);
@@ -1329,7 +1349,7 @@ public class ftwin : Gtk.ApplicationWindow {
 
 // category container
 
-		Gtk.Box xcat = new Gtk.Box(HORIZONTAL,0);
+		xcat = new Gtk.Box(HORIZONTAL,0);
 		xcat.append(lcat);
 		xcat.append(ccat);
 		xcat.set_halign(START);
@@ -1338,7 +1358,7 @@ public class ftwin : Gtk.ApplicationWindow {
 
 // group container
 
-		Gtk.Box xamt = new Gtk.Box(HORIZONTAL,0);
+		xamt = new Gtk.Box(HORIZONTAL,0);
 		xamt.append(lamt);
 		xamt.append(samt);
 		xamt.set_halign(START);
@@ -1347,7 +1367,7 @@ public class ftwin : Gtk.ApplicationWindow {
 
 // lower flowbox
 
-		Gtk.FlowBox plow = new Gtk.FlowBox();
+		plow = new Gtk.FlowBox();
 		plow.set_orientation(Orientation.HORIZONTAL);
 		plow.min_children_per_line = 1;
 		plow.max_children_per_line = 10;
@@ -1359,7 +1379,7 @@ public class ftwin : Gtk.ApplicationWindow {
 
 // assemble params
 
-		Gtk.Grid pgrd = new Gtk.Grid();
+		pgrd = new Gtk.Grid();
 		pgrd.margin_top = 10;
 		pgrd.margin_bottom = 10;
 		pgrd.margin_start = 10;
@@ -1371,14 +1391,14 @@ public class ftwin : Gtk.ApplicationWindow {
 		pgrd.attach(pmid,0,3,1,1);
 		pgrd.attach(plow,0,4,1,1);
 
-		Gtk.ScrolledWindow xscr = new Gtk.ScrolledWindow();
+		xscr = new Gtk.ScrolledWindow();
 		xscr.set_child(pgrd);
 		xscr.margin_top = 10;
 
 // foecast list
 
-		var lfcl = new Label(null);
-		lfcl.set_markup("<b><big>graph</big></b>");
+		lfcl = new Label(null);
+		lfcl.set_markup("<b><big>forecast</big></b>");
 		flst = new Gtk.DrawingArea();
 		flst.margin_top = 10;
 		flst.margin_bottom = 10;
@@ -1387,7 +1407,7 @@ public class ftwin : Gtk.ApplicationWindow {
 
 // graph page
 
-		var limg = new Label(null);
+		limg = new Label(null);
 		limg.set_markup("<b><big>graph</big></b>");
 		gimg = new Gtk.DrawingArea();
 
@@ -1403,7 +1423,7 @@ public class ftwin : Gtk.ApplicationWindow {
 
 // separator
 
-		Gtk.Paned hdiv = new Gtk.Paned(VERTICAL);
+		hdiv = new Gtk.Paned(VERTICAL);
 		hdiv.start_child = tabp;
 		hdiv.end_child = xscr;
 		hdiv.resize_end_child = true;
@@ -1418,6 +1438,7 @@ public class ftwin : Gtk.ApplicationWindow {
 // initialize
 
 		selectrow(4);
+		updateldat(4);
 		forecast(4);
 		//slst.queue_draw();
 
@@ -1957,8 +1978,9 @@ public class ftwin : Gtk.ApplicationWindow {
 										escn.text = exts[0];
 										ssrr = 0;
 										doup = true;
-										selectrow (4);
-										forecast(4);
+										selectrow (8);
+										updateldat(8);
+										forecast(8);
 										if (drwm == 0) { slst.queue_draw(); }
 										if (drwm == 1) { slst.queue_draw(); }
 										if (drwm == 2) { gimg.queue_draw(); }
@@ -2005,6 +2027,7 @@ public class ftwin : Gtk.ApplicationWindow {
 			sdat = tdat;
 			ssrr = (sdat.length[0] - 1);
 			selectrow (4);
+			updateldat(4);
 			forecast(4);
 			if (drwm == 0) { slst.queue_draw(); }
 			if (drwm == 1) { slst.queue_draw(); }
@@ -2026,6 +2049,7 @@ public class ftwin : Gtk.ApplicationWindow {
 			sdat = tdat;
 			ssrr = (sdat.length[0] - 1);
 			selectrow (4);
+			updateldat(4);
 			forecast(4);
 			if (drwm == 0) { slst.queue_draw(); }
 			if (drwm == 1) { slst.queue_draw(); }
@@ -2041,14 +2065,14 @@ public class ftwin : Gtk.ApplicationWindow {
 
 
 		slst.set_draw_func((da, ctx, daw, dah) => {
-			if (spew) { print("slst.set_draw_func:\tdraw started...\n"); }
-			if (spew) { print("slst.set_draw_func:\tchecking ldat.length[0] : %d\n", ldat.length[0]); }
+			if (spew && hard) { print("slst.set_draw_func:\tdraw started...\n"); }
+			if (spew && hard) { print("slst.set_draw_func:\tchecking ldat.length[0] : %d\n", ldat.length[0]); }
 			if (ldat.length[0] > 0) {
 				var presel = ssrr;
 				var csx = slst.get_allocated_width();
 				var csy = slst.get_allocated_height();
-				if (spew) { print("slst.set_draw_func:\tdrawarea width : %d\n", daw); }
-				if (spew) { print("slst.set_draw_func:\tcanvas size x : %d\n", csx); }
+				if (spew && hard) { print("slst.set_draw_func:\tdrawarea width : %d\n", daw); }
+				if (spew && hard) { print("slst.set_draw_func:\tcanvas size x : %d\n", csx); }
 
 // graph coords
 
@@ -2077,7 +2101,7 @@ public class ftwin : Gtk.ApplicationWindow {
 					sl_trgy = sl_mdwn[1];
 				}
 				
-				if (spew) { 
+				if (spew && hard) { 
 					print("slst.set_draw_func:\tsizx : %f\n", sl_sizx); 
 					print("slst.set_draw_func:\tsizy : %f\n", sl_sizy); 
 					print("slst.set_draw_func:\tposx : %f\n", sl_posx); 
@@ -2088,11 +2112,12 @@ public class ftwin : Gtk.ApplicationWindow {
 
 // bar height
 
+				ctx.select_font_face("Monospace",Cairo.FontSlant.NORMAL,Cairo.FontWeight.BOLD);
 				Cairo.TextExtents extents;
 				ctx.text_extents (ldat[0,0], out extents);
 				sl_barh = extents.height + 10;
 
-				if (spew) { 
+				if (spew && hard) { 
 					print("slst.set_draw_func:\tbarh : %f\n", sl_barh); 
 				}
 
@@ -2109,37 +2134,36 @@ public class ftwin : Gtk.ApplicationWindow {
 				var px = 0.0;
 				var py = 0.0;
 				if (ipik && sl_mdwn[0] > 0 && izom == false && ipan == false && iscr == false) {
-					if (spew) { print("slst.set_draw_func:\tchecking for selection at : %f x %f\n", sl_mdwn[0], sl_mdwn[1]); }
+					if (spew && hard) { print("slst.set_draw_func:\tchecking for selection at : %f x %f\n", sl_mdwn[0], sl_mdwn[1]); }
 					sl_rule = 99999;
 					for (int i = 0; i < ldat.length[0]; i++) {
 						px = 0.0;
 						py = 0.0;
-						if (idat[i,3] != "") { 
-							py = i * sl_barh;
-							py = py + sl_posy;
-							if (sl_mdwn[1] > py && sl_mdwn[1] < (py + (sl_barh - 1))) {
-								ssrr = int.parse(idat[i,3]);
-								sl_rule = i;
-								sl_trgx = sl_mdwn[0]; sl_trgy = sl_mdwn[1];
-								break;
-							}
+						py = i * sl_barh;
+						py = py + sl_posy;
+						if (sl_mdwn[1] > py && sl_mdwn[1] < (py + (sl_barh - 1))) {
+							ssrr = i;
+							sl_rule = i;
+							if (spew && hard) { print("slst.set_draw_func:\tselected row : %d\n", i); }
+							sl_trgx = sl_mdwn[0]; sl_trgy = sl_mdwn[1];
+							break;
 						}
 					}
 				}
 
 // rows
 
-				if (spew) { print("slst.set_draw_func:\tdrawing %d rows...\n", ldat.length[0]); }
+				if (spew && hard) { print("slst.set_draw_func:\tdrawing %d rows...\n", ldat.length[0]); }
 
 				for (int i = 0; i < ldat.length[0]; i++) {
 					px = 0.0;
 					py = 0.0;
-					if (bc.parse(ldat[i,2]) == false) { bc.parse(rowc); }
 					py = i * sl_barh;
 					py = py + sl_posy;
 					string xinf = ldat[i,0];
-					ctx.select_font_face("Monospace",Cairo.FontSlant.NORMAL,Cairo.FontWeight.BOLD);
 					if (ssrr != i) { 
+						if (bc.parse(ldat[i,1]) == false) { bc.parse(txtc); }
+						if (spew && hard) { print("slst.set_draw_func:\tgroup color : %s\n", ldat[i,1]); }
 						ctx.set_source_rgba(bc.red,bc.green,bc.blue,((float) 0.1));
 						ctx.rectangle(px, py, csx, (sl_barh - 1));
 						ctx.fill ();
@@ -2148,7 +2172,7 @@ public class ftwin : Gtk.ApplicationWindow {
 						ctx.show_text(xinf);
 					} else {
 						bc.parse(txtc);
-						ctx.set_source_rgba(bc.red,bc.green,bc.blue,((float) 0.1));
+						ctx.set_source_rgba(bc.red,bc.green,bc.blue,((float) 1.0));
 						ctx.rectangle(px, py, csx, (sl_barh - 1));
 						ctx.fill();
 						bc.parse(rowc);
@@ -2161,9 +2185,9 @@ public class ftwin : Gtk.ApplicationWindow {
 // new rule selection detected, update the rest of the ui
 // this should only trigger when ssrr changes
 
-				if (spew) { print("slst.set_draw_func:\tcomparing %d with %d...\n", ssrr, presel); }
+				if (spew && hard) { print("slst.set_draw_func:\tcomparing %d with %d...\n", ssrr, presel); }
 				if (ssrr >= 0 && ssrr != presel) {
-					//selectrow(4);
+					selectrow(4);
 				}
 
 // reset mouseown if not doing anythting with it
@@ -2182,7 +2206,7 @@ public class ftwin : Gtk.ApplicationWindow {
 					sl_olof = {sl_posx, sl_posy};
 					sl_olmd = {sl_trgx, sl_trgy};
 				}
-				if (spew) { print("slst.set_draw_func:\tdraw complete\n"); }
+				if (spew && hard) { print("slst.set_draw_func:\tdraw complete\n"); }
 			}
 		});
 
@@ -2462,8 +2486,8 @@ public class ftwin : Gtk.ApplicationWindow {
 		touchtap.set_button(Gdk.BUTTON_PRIMARY);
 		touchpan.set_button(Gdk.BUTTON_PRIMARY);
 
-		//slst.add_controller (touchtap);
-		//slst.add_controller (touchpan);
+		slst.add_controller (touchtap);
+		slst.add_controller (touchpan);
 
 		//gimg.add_controller (touchtap);
 		//gimg.add_controller (touchpan);
@@ -2499,6 +2523,7 @@ public class ftwin : Gtk.ApplicationWindow {
 				}
 			}
 		});
+		/*
 		touchtap.released.connect((event, n, x, y) => {
 			if (spew) { print("touchtap.released.connect\n"); }
 			izom = false;
@@ -2529,6 +2554,7 @@ public class ftwin : Gtk.ApplicationWindow {
 				gi_olmd = {gi_trgx, gi_trgy};
 			}
 		});
+		*/
 		touchpan.drag_begin.connect ((event, x, y) => {
 				if (spew) { print("touchpan_drag_begin\n"); }
 				if (drwm == 0) { 
