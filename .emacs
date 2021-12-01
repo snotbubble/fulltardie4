@@ -145,6 +145,9 @@
 ;; infix calc
 (global-set-key (kbd "C-=") 'calculator)
 
+;; misc editing
+(delete-selection-mode 1)
+
 ;; save desktop state
 (desktop-save-mode 1)
 
