@@ -4,30 +4,64 @@
 
 remove completed sub-items from the list
 
-* UI
+* [1_WIP] UI
 ** [1_WIP] setup params
-*** make touch scroll gutter [0/2]
-- [ ] move iso next to rule name
-- [ ] resize grids, or add blank space
-*** compact group/cat/amt [0/3]
-- [ ] find a way to pack-left while keeping widget+label together
-- [ ] investigate actiobar
-- [ ] maintain reflow behavior
-*** [3_TST] update group colors on edit [3/3]
+*** [3_TST] make touch scroll gutter [2/2]
+- [X] move iso next to rule name
+- [X] resize grids, or add blank space
+*** [3_TST] compact group/cat/amt [3/3]
+- [X] find a way to pack-left while keeping widget+label together
+- [X] investigate actiobar
+- [X] maintain reflow behavior
+*** [3_TST] update group colors on edit [4/4]
 - [X] only re-render relevant views
 - [X] find matching group color on change
 - [X] find matching group color on rename
+- [X] update color params
 ** [0_TDO] setup list
+*** [1_WIP] replace with draw
+**** [3_TST] add drawarea to notebook
+**** [3_TST] pre-process text
+**** [3_TST] make draw list
+***** [3_TST] memory vars [11/11]
+- [X] mousedown -----> sl_mdwn
+- [X] mousemove -----> sl_moom
+- [X] oldlistsize ---> sl_olsz
+- [X] oldlistoffset -> sl_olof
+- [X] oldmousedown --> sl_olmd
+- [X] posx ----------> sl_posx
+- [X] posy ----------> sl_posy
+- [X] targx ---------> sl_trgx
+- [X] targy ---------> sl_trgy
+- [X] barh ----------> sl_barh
+- [X] selectedttans--> sl_rule
+***** [3_TST] shared memory vars
+- [X] graphscroll ---> iscr
+- [X] graphpick -----> ipik
+- [X] graphpan ------> ipan
+- [X] grpahzoom -----> izom
+***** [0_TDO] clamp y scroll [/]
+- [ ] offset can't be positive
+- [ ] offset can't be -(barh * (ldat.length[0] + pad))
+***** [3_TST] clamp x scroll
+***** [0_TDO] move select row trigger to drag-end via bool variable
+**** make interaction events
 *** drag and drop re-ordering
-- [ ] get graph touch events working 1st...
-** [5_NUP] forecast list
-*** [5_NUP] retain selection where possible
-*** [5_NUP] sync selection to graph selection
+- [ ] long-press drag
+- [ ] shuffle list items on drag
+- [ ] reorder dat and re-redner on drop
+- [ ] remember list offset
+** [0_TDO] forecast list
+*** replace with draw
+- [ ] add drawarea to notebook
+- [ ] pre-process text
+- [ ] make draw list
+- [ ] make interaction events
 ** [1_WIP] graph
 *** FIX
-*** [3_TST] touch pan
-*** [1_WIP] touch zoom
-*** [0_TDO] touch select
+*** [1_WIP] touch pan
+*** [1_WIP] touch select
+*** [0_TDO] touch zoom
 *** [0_TDO] sync selection to forecast selection
 **** zoom to selected month
 *** [0_TDO] zoom extents x on start/isolate
@@ -42,27 +76,31 @@ remove completed sub-items from the list
 *** [0_TDO] clear overlay on forecast, isolate & load
 ** [0_TDO] calendar
 *** research drawing techniques in new project
-** [6_AOK] toolbar
+** [2_FIX] toolbar
+*** [2_FIX] fix load popover
+*** [0_TDO] [#B] replace load icon with dots/hamburger
+*** [0_TDO] put menubuttons next to each other on the right
+*** [0_TDO] put title on the left
 ** [0_TDO] io
 *** check scenario file before loading it [0/3]
 - [ ] check column count
 - [ ] check empty column data
 - [ ] check numbers
-
 ** [1_WIP] optimize
-*** [1_WIP] print everything [2/4]
+*** [1_WIP] print everything [4/6]
 - [X] indent output
 - [ ] brace the output (for folding)
 - [X] exclude pounded functions
 - [ ] include inputs where practical
-- [ ] add a toggle for it!
-- [ ] add a toggle to stream it to file
-*** [3_TST] check for redundant activity [1/1]
-- [X] fix graph double forecast
-*** [1_WIP] cleanup [2/3]
+- [X] add a toggle for it!
+- [X] add toggle for draw output
+*** check for redundant activity [1/1]
+*** [1_WIP] cleanup [3/5]
 - [X] remove hsv code
 - [ ] remove commented code
 - [X] remove any other redundant commentary
+- [X] shorten variable names
+- [ ] standardize variable name lenghts per level to avoid conflicts
 *** [0_TDO] remove unused vars
 *** [0_TDO] reduce variable usage
 *** [0_TDO] zero out temp vars when done
