@@ -888,6 +888,7 @@ public class ftwin : Gtk.ApplicationWindow {
 		double[] 	sl_olsz = {300.0,300.0};	// setuplist pre-draw size xy
 		double[] 	sl_olof = {0.0,0.0};		// setuplist pre-draw offset xy
 		double[] 	sl_olmd = {0.0,0.0};		// setuplist pre-draw mousedown xy
+		double		sl_olbh = 30.0;				// setuplist pre-draw bar height
 		double 		sl_posx = 0.0;				// setuplist post-draw offset x
 		double 		sl_posy = 0.0;				// setuplist post_draw offset y
 		double		sl_sizx	= 0.0;				// setuplist post-draw size x
@@ -930,6 +931,10 @@ public class ftwin : Gtk.ApplicationWindow {
 		double 		gi_barh = 30.0;				// graph row height
 		int 		gi_rule = 0;				// graph selected rule
 		int			gi_trns = 0;				// graph selecte transaction
+
+// common draw output
+
+		bool		dosel;						// select a rule on mouse-up
 
 // sample data
 		
@@ -1433,6 +1438,7 @@ public class ftwin : Gtk.ApplicationWindow {
 // add ui to window
 
 		this.set_child(hdiv);
+		xcol.visible = false;
 		doup = true;
 
 // initialize
@@ -2078,29 +2084,24 @@ public class ftwin : Gtk.ApplicationWindow {
 
 				sl_sizx = sl_olsz[0];
 				sl_sizy = sl_olsz[1];
-				if (izom || iscr) {
-					sl_sizx = (sl_olsz[0] + (sl_moom[0] - sl_mdwn[0]));
-					sl_sizy = (sl_olsz[1] + (sl_moom[1] - sl_mdwn[1]));
-				}
 				sl_posx = sl_olof[0];
 				sl_posy = sl_olof[1];
-				if (izom || iscr) {
-					sl_posx = sl_olof[0] + ( (sl_mdwn[0] - sl_olof[0]) - ( (sl_mdwn[0] - sl_olof[0]) * (sl_sizx / sl_olsz[0]) ) ) ;
-					sl_posy = sl_olof[1] + ( (sl_mdwn[1] - sl_olof[1]) - ( (sl_mdwn[1] - sl_olof[1]) * (sl_sizy / sl_olsz[1]) ) ) ;
-					sl_trgx = sl_olmd[0] + ( (sl_mdwn[0] - sl_olmd[0]) - ( (sl_mdwn[0] - sl_olmd[0]) * (sl_sizx / sl_olsz[0]) ) ) ;
-					sl_trgy = sl_olmd[1] + ( (sl_mdwn[1] - sl_olmd[1]) - ( (sl_mdwn[1] - sl_olmd[1]) * (sl_sizy / sl_olsz[1]) ) ) ;
-				}
-				if(ipan) {
+				sl_sizx = 1.0;
+
+				if(ipan || iscr) {
 					sl_posx = sl_olof[0] + (sl_moom[0] - sl_mdwn[0]);
 					sl_posy = sl_olof[1] + (sl_moom[1] - sl_mdwn[1]);
 					sl_trgx = sl_olmd[0] + (sl_moom[0] - sl_mdwn[0]);
 					sl_trgy = sl_olmd[1] + (sl_moom[1] - sl_mdwn[1]);
 				}
+				if (izom) {
+					 sl_sizy = double.max(5.0,double.min((sl_olsz[0] + (sl_moom[1] - sl_mdwn[1])),50.0));
+				}
 				if (ipik) {
 					sl_trgx = sl_mdwn[0];
 					sl_trgy = sl_mdwn[1];
 				}
-				
+
 				if (spew && hard) { 
 					print("slst.set_draw_func:\tsizx : %f\n", sl_sizx); 
 					print("slst.set_draw_func:\tsizy : %f\n", sl_sizy); 
@@ -2113,14 +2114,19 @@ public class ftwin : Gtk.ApplicationWindow {
 // bar height
 
 				ctx.select_font_face("Monospace",Cairo.FontSlant.NORMAL,Cairo.FontWeight.BOLD);
+				ctx.set_font_size(sl_sizy - 10.0); 
 				Cairo.TextExtents extents;
 				ctx.text_extents (ldat[0,0], out extents);
-				sl_barh = extents.height + 10;
+				sl_barh = sl_sizy;
 
 				if (spew && hard) { 
 					print("slst.set_draw_func:\tbarh : %f\n", sl_barh); 
 				}
 
+// clamp pos y
+
+				//sl_posy = double.min(sl_posy, (0 - (sl_barh * ldat.length[0])));
+				sl_posy = double.min(double.max(sl_posy, (0 - ((sl_barh * ldat.length[0]) - sl_barh))), 0.0);
 
 // paint bg
 
@@ -2168,7 +2174,7 @@ public class ftwin : Gtk.ApplicationWindow {
 						ctx.rectangle(px, py, csx, (sl_barh - 1));
 						ctx.fill ();
 						ctx.set_source_rgba(bc.red,bc.green,bc.blue,((float) 1.0));
-						ctx.move_to((px + 20), (py + (sl_barh - 1) - 5));
+						ctx.move_to((px + 20), (py + (sl_barh - 1) - 7));
 						ctx.show_text(xinf);
 					} else {
 						bc.parse(txtc);
@@ -2177,7 +2183,7 @@ public class ftwin : Gtk.ApplicationWindow {
 						ctx.fill();
 						bc.parse(rowc);
 						ctx.set_source_rgba(bc.red,bc.green,bc.blue,((float) 1.0));
-						ctx.move_to((px + 20), (py + (sl_barh - 1) - 5));
+						ctx.move_to((px + 20), (py + (sl_barh - 1) - 7));
 						ctx.show_text(xinf);
 					}
 				}
@@ -2187,7 +2193,7 @@ public class ftwin : Gtk.ApplicationWindow {
 
 				if (spew && hard) { print("slst.set_draw_func:\tcomparing %d with %d...\n", ssrr, presel); }
 				if (ssrr >= 0 && ssrr != presel) {
-					selectrow(4);
+					dosel = true;
 				}
 
 // reset mouseown if not doing anythting with it
@@ -2197,10 +2203,7 @@ public class ftwin : Gtk.ApplicationWindow {
 					sl_mdwn[1] = 0;
 					ipik = false;
 				}
-
-// there's no wheel_end event so these go here... its a pulse event so works ok
-
-				if (iscr) { 
+				if (iscr) {
 					iscr = false;
 					sl_olsz = {sl_sizx, sl_sizy};
 					sl_olof = {sl_posx, sl_posy};
@@ -2441,7 +2444,7 @@ public class ftwin : Gtk.ApplicationWindow {
 // new rule selection detected, update the rest of the ui
 
 				if (ssrr >= 0 && ssrr != presel) {
-					selectrow(4);
+					dosel = true;
 				}
 
 // reset mouseown if not doing anythting with it
@@ -2471,31 +2474,35 @@ public class ftwin : Gtk.ApplicationWindow {
 ////////////////////////////
 
 		/*
+		//gtk3 attach events to widget
 		gimg.add_events (Gdk.EventMask.TOUCH_MASK);
 		gimg.add_events (Gdk.EventMask.BUTTON_PRESS_MASK);
 		gimg.add_events (Gdk.EventMask.BUTTON2_MOTION_MASK);
 		gimg.add_events (Gdk.EventMask.BUTTON3_MOTION_MASK);
 		gimg.add_events (Gdk.EventMask.BUTTON_RELEASE_MASK);
 		gimg.add_events (Gdk.EventMask.POINTER_MOTION_MASK);
-		gimg.add_events (Gdk.EventMask.SCROLL_MASK);
 		*/
 
-		Gtk.GestureClick touchtap = new Gtk.GestureClick();
+		//Gtk.GestureClick touchtap = new Gtk.GestureClick();
 		Gtk.GestureDrag touchpan = new Gtk.GestureDrag();
+		Gtk.EventControllerScroll wheeler = new Gtk.EventControllerScroll(VERTICAL);
 
-		touchtap.set_button(Gdk.BUTTON_PRIMARY);
-		touchpan.set_button(Gdk.BUTTON_PRIMARY);
+		//touchtap.set_button(Gdk.BUTTON_PRIMARY);
+		//touchpan.set_button(Gdk.BUTTON_SECONDARY);
+		touchpan.set_button(0);
 
-		slst.add_controller (touchtap);
-		slst.add_controller (touchpan);
+		//slst.add_controller (touchtap);
+		slst.add_controller(touchpan);
+		slst.add_controller(wheeler);
 
 		//gimg.add_controller (touchtap);
 		//gimg.add_controller (touchpan);
-
+		/*
 		touchtap.pressed.connect((event, n, x, y) => {
-			ipik = (event.button == 1);
-			izom = (event.button == 3);
-			ipan = (event.button == 2);
+			ipik = true;
+			izom = false;
+			ipan = false;
+			iscr = false;
 			if (spew) { print("touchtap.pressed.connect\n"); }
 			if (drwm == 0) { 
 				if (ipik) { 
@@ -2523,7 +2530,7 @@ public class ftwin : Gtk.ApplicationWindow {
 				}
 			}
 		});
-		/*
+
 		touchtap.released.connect((event, n, x, y) => {
 			if (spew) { print("touchtap.released.connect\n"); }
 			izom = false;
@@ -2557,8 +2564,16 @@ public class ftwin : Gtk.ApplicationWindow {
 		*/
 		touchpan.drag_begin.connect ((event, x, y) => {
 				if (spew) { print("touchpan_drag_begin\n"); }
+				ipik = (event.get_current_button() == 1);
+				izom = (event.get_current_button() == 3);
+				ipan = (event.get_current_button() == 2);
 				if (drwm == 0) { 
 					sl_mdwn = {x, y};
+					if (ipik) { 
+						sl_olmd = {sl_mdwn[0], sl_mdwn[1]};
+						sl_trgx = sl_mdwn[0]; 
+						sl_trgy = sl_mdwn[1]; 
+					}
 				}
 				if (drwm == 1) { 
 					fl_mdwn = {x, y};
@@ -2566,17 +2581,12 @@ public class ftwin : Gtk.ApplicationWindow {
 				if (drwm == 2) { 
 					gi_mdwn = {x, y};
 				}
-				ipik = true;
-				ipan = false;
-				izom = false;
 		});
 		touchpan.drag_update.connect((event, x, y) => {
-			ipan = true;
-			izom = false;
-			ipik = false;
 			if (drwm == 0) { 
+				if (izom == false && ipan == false && ipik == false) { sl_mdwn = {x, y}; }
 				sl_moom = {x, y};
-				slst.queue_draw();
+				if (izom || ipan) { slst.queue_draw(); }
 			}
 			if (drwm == 1) { 
 				fl_moom = {x, y};
@@ -2589,13 +2599,15 @@ public class ftwin : Gtk.ApplicationWindow {
 		});
 		touchpan.drag_end.connect(() => {
 			if (spew) { print("touchpan_drag_end\n"); }
-			ipik = false;
 			ipan = false;
 			izom = false;
+			iscr = false;
 			if (drwm == 0) { 
+				if (ipik) { slst.queue_draw(); }
 				sl_olsz = {sl_sizx, sl_sizy};
 				sl_olof = {sl_posx, sl_posy};
 				sl_olmd = {sl_trgx, sl_trgy};
+				sl_olbh = sl_barh;
 			}
 			if (drwm == 1) { 
 				fl_olsz = {fl_sizx, fl_sizy};
@@ -2607,8 +2619,23 @@ public class ftwin : Gtk.ApplicationWindow {
 				gi_olof = {gi_posx, gi_posy};
 				gi_olmd = {gi_trgx, gi_trgy};
 			}
+			if (dosel) { selectrow(8); dosel = false; }
+		});
+		wheeler.scroll.connect ((x,y) => {
+			if (spew && hard) { print("wheel y = %f\n", y); }
+			if (y != 0.0)  {
+				iscr = true;
+				sl_moom = {(sl_mdwn[0] - (y * 10.0)), (sl_mdwn[1] - (y * 10.0))};
+				slst.queue_draw();
+			}
 		});
 		/*
+		wheeler.scroll_end.connect (() => {
+			//iscr = false;
+			sl_olsz = {sl_sizx, sl_sizy};
+			sl_olof = {sl_posx, sl_posy};
+			sl_olmd = {sl_trgx, sl_trgy};
+		});
 		gimg.button_press_event.connect ((event) => {
 			print("gimg.button_press_event.connect\n");
 			gi_mdwn = {event.x, event.y};
