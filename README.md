@@ -10,13 +10,13 @@ forecast transactions that have complex recurrence rules
 - expanded forecasting capabilities
 
 status
-- currenly translating to gtk4...
+- currenly fixing ui issues in gtk4 version...
 
-usage (pre-release, linux only)
+usage (pre-release testing, linux only)
 - mkdir ~/Desktop/fulltardie && cd ~/Desktop/fulltardie
-- wget -O fulltardie_gtk4.vala https://raw.githubusercontent.com/snotbubble/fulltardie4/main/fulltardie_gtk4.vala
-- valac fulltardie_gtk4.vala --pkg gtk4 -X -lm
-- ./fulltardie_gtk4
+- wget -O fulltardie_gtk4_cairo.vala https://raw.githubusercontent.com/snotbubble/fulltardie4/main/fulltardie_gtk4_cairo.vala
+- valac fulltardie_gtk4_cairo.vala --pkg gtk4 -X -lm
+- ./fulltardie_gtk4_cairo
 
 # screenie
 ![screenie](./211105b_fulltardie_alltabs.png)
