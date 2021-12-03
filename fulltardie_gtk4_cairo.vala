@@ -4,20 +4,29 @@
 // replacing listboxes with cairo draw-areas
 // css roundtripping was lagging, producing incorrect results, and generally retarded
 //
-// status: incomplete.
-// compiles, runs, redners setup list. interaction and other draw-areas not complete
-// other features not checked; priority is to get the new viwers up & running
+// status: broken parameter ui.
+// - compiles, runs, renders lists and graph.
+// - comboboxes are busted atm: won't scroll, no columns.
+// - other features not checked yet.
+// - not checked on pinephone yet (probably busted due to gtk4 rendering issues).
 
 // TODO
 // - [X] function ui input as globals instead of args
 // - [X] clean up names
 // - [X] clean up events
-// - [!] replace listboxes with drawareas
+// - [X] replace listboxes with drawareas
 // - [X] make setuplist pre-render function
-// - [!] make forecastlist pre-render function
-// - [!] convert listrenderers to preprocessors
+// - [X] make forecastlist pre-render function
+// - [X] convert listrenderers to preprocessors
 // - [X] stop touchtap and touchdrag from fighting each other
+// - [ ] fix: forecast scroll-wheel-triggered draw randomly quitting
+// - [ ] find a way to do touch-drag without selecting stuff
+// - [ ] find new ways to break the damned info bubble and fix them
+// - [ ] fix comboboxes: add adaptive colums and scrolling
+// - [ ] fatten the divider for touch, or replace it
+// - [ ] double-click/tap divider to toggle vertical if window.w > window.h
 // - [ ] add checkssrr; minmax it
+// - [ ] find new ways to segfault and fix (let wife use it for 5sec)
 // - [ ] clean out test code & comments
 
 using Gtk;
@@ -96,6 +105,9 @@ int[]				ldom;	// last day of each month
 Gtk.CssProvider 	tcsp;	// color toggle css
 Gtk.CssProvider 	icsp;	// iso toggle css
 
+// needed to clear graph info bubble under certain circumstances
+
+int					gi_trns;
 
 // data returned from findnextdate
 
@@ -114,7 +126,13 @@ struct nextdate {
 // modulo from 'cdeerinck'
 // https://stackoverflow.com/questions/41180292/negative-number-modulo-in-swift#41180619
 
-int dmod (int l, int r) {
+int imod (int l, int r) {
+	if (l >= 0) { return (l % r); }
+	if (l >= -r) { return (l + r); }
+	return ((l % r) + r) % r;
+}
+
+double dmod (double l, double r) {
 	if (l >= 0) { return (l % r); }
 	if (l >= -r) { return (l + r); }
 	return ((l % r) + r) % r;
@@ -195,8 +213,8 @@ nextdate[] findnextdate (string[] dat, int own, int ind) {
 	if (ofm > 0) {
 		for (int x = 0; x < dif; x++) {
 			var dmo = (a.get_month() == fmo);
-			if (ofm > 0) { dmo = (dmod((a.get_month() - fmo), ofm) == 0); }
-			var ofmcalc = dmod((a.get_month() - fmo), ofm);
+			if (ofm > 0) { dmo = (imod((a.get_month() - fmo), ofm) == 0); }
+			var ofmcalc = imod((a.get_month() - fmo), ofm);
 			if (dmo) {
 				var c = 0;
 				var mth = md;
@@ -421,9 +439,9 @@ void updateidat (int ind) {
 	if (spew) { print("%supdateidat started...\n", tabi); }
 	var tabni = ("%-" + (ind + 4).to_string() + "s").printf("");
 
-// idat = { "list row text", "#fgcolor", "#bgcolor", "creating-rule index" }
+// idat = { "list row text", "#fgcolor", "creating-rule index" }
 
-	string[,] idat = new string[fdat.length[0],4];
+	idat = new string[fdat.length[0],3];
 
 	// fdat=
 	// 0 = date
@@ -435,10 +453,16 @@ void updateidat (int ind) {
 	// 6 = catcolor
 	// 7 = groupcolor
 	// 8 = owner
+	
+	if (spew) { 
+		print("%supdateidat:\tcheck fdat.length[0]: %d\n", tabni, fdat.length[0]); 
+		print("%supdateidat:\tcheck fdat.length[1]: %d\n", tabni, fdat.length[1]); 
+	}
 
 	if (fdat.length[0] > 0) {
 		if (fdat.length[1] == 9) {
 			int[] sls = {8,0,0,0,0};
+			idat = new string[fdat.length[0],3];
 
 // get string lengths
 
@@ -454,26 +478,24 @@ void updateidat (int ind) {
 			for (var r = 0; r < fdat.length[0]; r++) {
 				string clr = fdat[r,7];
 				string rfg = "%s%s".printf(fdat[r,7],"FF");
-				string rbg = "%s%s".printf(fdat[r,7],"55");
 				rgba = Gdk.RGBA();
 				if (rgba.parse(rfg) == false) { 
 					rfg = "%s%s".printf(txtc,"FF");
-					rbg = "%s%s".printf(txtc,"55"); 
-				}
-				if (ssrr == int.parse(fdat[r,8])) {  
-					rfg = "%s%s".printf(rowc,"FF");
-					rbg = "%s%s".printf(txtc,"FF"); 
 				}
 				idat[r,0] = "".concat(
 					fdat[r,0], " : ", 
 					("%-" + sls[3].to_string() + "s").printf(fdat[r,3]), " ",
 					("%-" + sls[2].to_string() + "s").printf(fdat[r,2]), " ",
 					("%-" + sls[1].to_string() + "s").printf(fdat[r,1]), " ",
-					" : ", fdat[r,5], ";", clr
+					" : ", fdat[r,5]
 				);
 				idat[r,1] = rfg; 
-				idat[r,2] = rbg; 
-				idat[r,3] = fdat[r,8];
+				idat[r,2] = fdat[r,8];
+				if (spew && hard) { 
+					print("%s\tupdateidat:\tidat[%d,0]: %s\n", tabni, r, idat[r,0]); 
+					print("%s\tupdateidat:\tidat[%d,1]: %s\n", tabni, r, idat[r,1]);
+					print("%s\tupdateidat:\tidat[%d,2]: %s\n", tabni, r, idat[r,2]); 
+				}
 			}
 		}
 	}
@@ -484,6 +506,9 @@ void forecast (int ind) {
 	var tabi = ("%-" + ind.to_string() + "s").printf("");
 	if (spew) { print("%sforecast started...\n",tabi); }
 	var nind = ind + 4;
+
+// close the graph info bubble since we;re reforecasting
+	gi_trns = 99999;
 
 	string[] rrr = {};
 
@@ -512,6 +537,15 @@ void forecast (int ind) {
 		var rfd = ttt[u];
 		var ch = new char[9];
 		rfd.nxd.strftime(ch,"%y %m %d");
+		// 0 date
+		// 1 cat
+		// 2 amt
+		// 3 description
+		// -------------
+		// 4 owner
+		// 5 cat color
+		// 6 group color
+		// 7 group
 		rrr += "".concat(
 			((string) ch),
 			" : ",
@@ -573,24 +607,20 @@ void updateldat (int ind) {
 	var tabi = ("%-" + ind.to_string() + "s").printf("");
 	var tabni = ("%-" + (ind + 4).to_string() + "s").printf("");
 	if (spew) { print("%supdateldat started...\n",tabi); }
-	//string[,] ldat = new string[sdat.length[0],3];
 	ldat = new string[sdat.length[0],2];
 	if (spew) { print("%supdateldat:\tsdat.length[0] : %d\n",tabni,sdat.length[0]); }
 	for (var s = 0; s < sdat.length[0]; s++) {
 		string rfg = "%s%s".printf(sdat[s,12],"FF");
-		//string rbg = "%s%s".printf(sdat[s,12],"55");
 		rgba = Gdk.RGBA();
 		if (rgba.parse(rfg) == false) { 
-			rfg = "%s%s".printf(txtc,"FF");
-			//rbg = "%s%s".printf(txtc,"55"); 
+			rfg = "%s%s".printf(txtc,"FF"); 
 		}
-		//if (ssrr == s) {  
-			//rfg = "%s%s".printf(rowc,"FF");
-			//rbg = "%s%s".printf(txtc,"FF"); 
-		//}
 		ldat[s,0] = sdat[s,10];
 		ldat[s,1] = rfg;
-		//ldat[s,2] = rbg;
+		if (spew && hard) { 
+			print("%s\tsupdateldat:\tldat[%d,0] : %s\n", tabni, s, ldat[s,0]);
+			print("%s\tsupdateldat:\tldat[%d,1] : %s\n", tabni, s, ldat[s,1]); 
+		}
 	}
 	if (spew) { print("%supdateldat:\tldat.length[0] : %d\n",tabni,ldat.length[0]); }
 	if (spew) { print("%supdateldat completed.\n", tabi); }
@@ -906,6 +936,7 @@ public class ftwin : Gtk.ApplicationWindow {
 		double[] 	fl_olsz = {300.0,300.0};	// forecastlist pre-draw size xy
 		double[] 	fl_olof = {0.0,0.0};		// forecastlist pre-draw offset xy
 		double[] 	fl_olmd = {0.0,0.0};		// forecastlist pre-draw mousedown xy
+		double		fl_olbh	= 20.0;				// forecastlist post-draw bar height
 		double 		fl_posx = 0.0;				// forecastlist post-draw offset x
 		double 		fl_posy = 0.0;				// forecastlist post_draw offset y
 		double		fl_sizx	= 0.0;				// forecastlist post-draw size x
@@ -914,6 +945,7 @@ public class ftwin : Gtk.ApplicationWindow {
 		double 		fl_trgy = 0.0;				// forecastlist post-draw moudedown y
 		double 		fl_barh = 30.0;				// forecastlist row height
 		int 		fl_rule = 0;				// forecastlist selected rule
+		double[]	fl_rssz = {300.0,300.0};	// forecastlist pre-draw size memory for isolate
 
 // graph memory
 
@@ -922,6 +954,7 @@ public class ftwin : Gtk.ApplicationWindow {
 		double[] 	gi_olsz = {300.0,300.0};	// graph pre-draw size xy
 		double[] 	gi_olof = {0.0,0.0};		// graph pre-draw offset xy
 		double[] 	gi_olmd = {0.0,0.0};		// graph pre-draw mousedown xy
+		double		gi_olbh = 10.0;				// graph pre-draw bar height
 		double 		gi_posx = 0.0;				// graph post-draw offset x
 		double 		gi_posy = 0.0;				// graph post_draw offset y
 		double		gi_sizx	= 0.0;				// graph post-draw size x
@@ -930,11 +963,12 @@ public class ftwin : Gtk.ApplicationWindow {
 		double 		gi_trgy = 0.0;				// graph post-draw moudedown y
 		double 		gi_barh = 30.0;				// graph row height
 		int 		gi_rule = 0;				// graph selected rule
-		int			gi_trns = 0;				// graph selecte transaction
+		double[]	gi_rssz = {300.0,300.0};	// graph pre-draw size memory for isolate
+		gi_trns = 0;							// graph selecte transaction
 
 // common draw output
 
-		bool		dosel;						// select a rule on mouse-up
+		bool		dosel = false;				// select a rule on mouse-up
 
 // sample data
 		
@@ -1134,7 +1168,6 @@ public class ftwin : Gtk.ApplicationWindow {
 // window
 
 		this.title = "fulltardie";
-		this.set_default_size(360, 720);
 		this.close_request.connect((e) => { 
 			if (spew) { print("yeh bye\n"); } 
 			return false; 
@@ -1151,6 +1184,7 @@ public class ftwin : Gtk.ApplicationWindow {
 		tbar.show_title_buttons  = true;
 		tbar.set_title_widget(titl);
 		this.set_titlebar (tbar);
+		this.set_default_size(360, (720 - 46));  // magic number for headerbar, since we can't read it yet
 
 // load/save menus
 
@@ -1247,7 +1281,7 @@ public class ftwin : Gtk.ApplicationWindow {
 
 // assemble controls
 
-		Gtk.Box pctr = new Gtk.Box(HORIZONTAL,10);
+		pctr = new Gtk.Box(HORIZONTAL,10);
 		pctr.append(badd);
 		pctr.append(brem);
 		pctr.append(tiso);
@@ -1301,6 +1335,7 @@ public class ftwin : Gtk.ApplicationWindow {
 		pmid.insert(cwkd,0);
 		pmid.insert(cnth,0);
 		pmid.insert(cevr,0);
+		pmid.set_selection_mode(NONE);
 
 
 // group 
@@ -1381,6 +1416,7 @@ public class ftwin : Gtk.ApplicationWindow {
 		plow.insert(xamt,2);
 		plow.homogeneous = true;
 		plow.column_spacing = 10;
+		plow.set_selection_mode(NONE);
 
 // assemble params
 
@@ -1440,12 +1476,17 @@ public class ftwin : Gtk.ApplicationWindow {
 		this.set_child(hdiv);
 		xcol.visible = false;
 		doup = true;
+		hard = false;
 
 // initialize
 
+		sl_olsz = {320,500};
 		selectrow(4);
 		updateldat(4);
 		forecast(4);
+		fl_olsz = {360,(10.0 * fdat.length[0])};
+		gi_olsz = {260,(720.0 - 350.0)};
+		gi_olof = {40.0,20.0};
 		//slst.queue_draw();
 
 
@@ -1594,6 +1635,17 @@ public class ftwin : Gtk.ApplicationWindow {
 			if (doup) {
 				if (spew) { print("iso.toggled.connect:\ttoggling isolate...\n"); }
 				forecast(4); updateidat(4);
+				print("flst.get_allocated_height() : %f\n", flst.get_allocated_height());
+// capture and restore forecastlist size regardless of visibility, width irrelevant
+				if (tiso.get_active()) {
+					fl_rssz = fl_olsz;
+					fl_olsz = {500, flst.get_allocated_height()};
+					gi_rssz = gi_olsz;
+					gi_olsz = {(gimg.get_allocated_width() - 80.0), (gimg.get_allocated_height() - 40.0)}; 
+				} else { 
+					fl_olsz = fl_rssz;
+					gi_olsz = gi_rssz; 
+				}
 				if (drwm == 1) { flst.queue_draw(); }
 				if (drwm == 2) { gimg.queue_draw(); }
 			}
@@ -2084,24 +2136,37 @@ public class ftwin : Gtk.ApplicationWindow {
 
 				sl_sizx = sl_olsz[0];
 				sl_sizy = sl_olsz[1];
-				sl_posx = sl_olof[0];
+
+
+				if (izom) {
+					sl_sizx = (sl_olsz[0] + sl_moom[0]);
+					sl_sizy = (sl_olsz[1] + sl_moom[1]);
+				}
+
 				sl_posy = sl_olof[1];
-				sl_sizx = 1.0;
+				sl_posx = sl_olof[0];
+				
+				if (izom) {
+					sl_posx = sl_olof[0] + ( (sl_mdwn[0] - sl_olof[0]) - ( (sl_mdwn[0] - sl_olof[0]) * (sl_sizx / sl_olsz[0]) ) ) ;
+					sl_posy = sl_olof[1] + ( (sl_mdwn[1] - sl_olof[1]) - ( (sl_mdwn[1] - sl_olof[1]) * (sl_sizy / sl_olsz[1]) ) ) ;
+					sl_trgx = sl_olmd[0] + ( (sl_mdwn[0] - sl_olmd[0]) - ( (sl_mdwn[0] - sl_olmd[0]) * (sl_sizx / sl_olsz[0]) ) ) ;
+					sl_trgy = sl_olmd[1] + ( (sl_mdwn[1] - sl_olmd[1]) - ( (sl_mdwn[1] - sl_olmd[1]) * (sl_sizy / sl_olsz[1]) ) ) ;
+				}
 
 				if(ipan || iscr) {
-					sl_posx = sl_olof[0] + (sl_moom[0] - sl_mdwn[0]);
-					sl_posy = sl_olof[1] + (sl_moom[1] - sl_mdwn[1]);
-					sl_trgx = sl_olmd[0] + (sl_moom[0] - sl_mdwn[0]);
-					sl_trgy = sl_olmd[1] + (sl_moom[1] - sl_mdwn[1]);
+					sl_posx = sl_olof[0] + sl_moom[0];
+					sl_posy = sl_olof[1] + sl_moom[1];
+					sl_trgx = sl_olmd[0] + sl_moom[0];
+					sl_trgy = sl_olmd[1] + sl_moom[1];
 				}
 				if (izom) {
-					 sl_sizy = double.max(5.0,double.min((sl_olsz[0] + (sl_moom[1] - sl_mdwn[1])),50.0));
+					sl_barh = double.max(20.0,double.min((sl_olbh + (sl_moom[1] * 0.1)),60.0));
+					//print("bar height = %f\n", sl_barh);
 				}
 				if (ipik) {
 					sl_trgx = sl_mdwn[0];
 					sl_trgy = sl_mdwn[1];
 				}
-
 				if (spew && hard) { 
 					print("slst.set_draw_func:\tsizx : %f\n", sl_sizx); 
 					print("slst.set_draw_func:\tsizy : %f\n", sl_sizy); 
@@ -2114,10 +2179,10 @@ public class ftwin : Gtk.ApplicationWindow {
 // bar height
 
 				ctx.select_font_face("Monospace",Cairo.FontSlant.NORMAL,Cairo.FontWeight.BOLD);
-				ctx.set_font_size(sl_sizy - 10.0); 
+				ctx.set_font_size(sl_barh * 0.8); 
 				Cairo.TextExtents extents;
 				ctx.text_extents (ldat[0,0], out extents);
-				sl_barh = sl_sizy;
+				//sl_barh = sl_barh;
 
 				if (spew && hard) { 
 					print("slst.set_draw_func:\tbarh : %f\n", sl_barh); 
@@ -2125,8 +2190,7 @@ public class ftwin : Gtk.ApplicationWindow {
 
 // clamp pos y
 
-				//sl_posy = double.min(sl_posy, (0 - (sl_barh * ldat.length[0])));
-				sl_posy = double.min(double.max(sl_posy, (0 - ((sl_barh * ldat.length[0]) - sl_barh))), 0.0);
+				sl_posy = double.min(double.max(sl_posy, (0 - ((sl_barh * ldat.length[0])-dah))), 0.0);
 
 // paint bg
 
@@ -2171,19 +2235,19 @@ public class ftwin : Gtk.ApplicationWindow {
 						if (bc.parse(ldat[i,1]) == false) { bc.parse(txtc); }
 						if (spew && hard) { print("slst.set_draw_func:\tgroup color : %s\n", ldat[i,1]); }
 						ctx.set_source_rgba(bc.red,bc.green,bc.blue,((float) 0.1));
-						ctx.rectangle(px, py, csx, (sl_barh - 1));
+						ctx.rectangle(px, py, daw, (sl_barh - 1));
 						ctx.fill ();
 						ctx.set_source_rgba(bc.red,bc.green,bc.blue,((float) 1.0));
-						ctx.move_to((px + 20), (py + (sl_barh - 1) - 7));
+						ctx.move_to((px + 20.0), (py + (sl_barh * 0.75)));
 						ctx.show_text(xinf);
 					} else {
 						bc.parse(txtc);
 						ctx.set_source_rgba(bc.red,bc.green,bc.blue,((float) 1.0));
-						ctx.rectangle(px, py, csx, (sl_barh - 1));
+						ctx.rectangle(px, py, daw, (sl_barh - 1));
 						ctx.fill();
 						bc.parse(rowc);
 						ctx.set_source_rgba(bc.red,bc.green,bc.blue,((float) 1.0));
-						ctx.move_to((px + 20), (py + (sl_barh - 1) - 7));
+						ctx.move_to((px + 20), (py + (sl_barh * 0.75)));
 						ctx.show_text(xinf);
 					}
 				}
@@ -2213,6 +2277,172 @@ public class ftwin : Gtk.ApplicationWindow {
 			}
 		});
 
+///////////////////////////////////
+//                               //
+//    forecast-list rendering    //
+//                               //
+///////////////////////////////////
+
+
+		flst.set_draw_func((da, ctx, daw, dah) => {
+			if (spew && hard) { print("flst.set_draw_func:\tdraw started...\n"); }
+			if (spew && hard) { print("flst.set_draw_func:\tchecking idat.length[0] : %d\n", idat.length[0]); }
+			if (idat.length[0] > 0) {
+				var presel = ssrr;
+				var csx = flst.get_allocated_width();
+				var csy = flst.get_allocated_height();
+				if (spew && hard) { print("flst.set_draw_func:\tdrawarea width : %d\n", daw); }
+				if (spew && hard) { print("flst.set_draw_func:\tcanvas size x : %d\n", csx); }
+
+// graph coords
+
+				fl_sizx = fl_olsz[0];
+				fl_sizy = fl_olsz[1];
+
+
+				if (izom) {
+					fl_sizx = (fl_olsz[0] + fl_moom[0]);
+					fl_sizy = (fl_olsz[1] + fl_moom[1]);
+				}
+
+				fl_posy = fl_olof[1];
+				fl_posx = fl_olof[0];
+				
+				if (izom) {
+					fl_posx = fl_olof[0] + ( (fl_mdwn[0] - fl_olof[0]) - ( (fl_mdwn[0] - fl_olof[0]) * (fl_sizx / fl_olsz[0]) ) ) ;
+					fl_posy = fl_olof[1] + ( (fl_mdwn[1] - fl_olof[1]) - ( (fl_mdwn[1] - fl_olof[1]) * (fl_sizy / fl_olsz[1]) ) ) ;
+					fl_trgx = fl_olmd[0] + ( (fl_mdwn[0] - fl_olmd[0]) - ( (fl_mdwn[0] - fl_olmd[0]) * (fl_sizx / fl_olsz[0]) ) ) ;
+					fl_trgy = fl_olmd[1] + ( (fl_mdwn[1] - fl_olmd[1]) - ( (fl_mdwn[1] - fl_olmd[1]) * (fl_sizy / fl_olsz[1]) ) ) ;
+				}
+
+				if(ipan || iscr) {
+					fl_posx = fl_olof[0] + fl_moom[0];
+					fl_posy = fl_olof[1] + fl_moom[1];
+					fl_trgx = fl_olmd[0] + fl_moom[0];
+					fl_trgy = fl_olmd[1] + fl_moom[1];
+				}
+				//if (izom) {
+				//	fl_barh = double.max(10.0,double.min((fl_olbh + (fl_moom[1] * 0.1)),60.0));
+				//	//print("bar height = %f\n", fl_barh);
+				//}
+
+				if (ipik) {
+					fl_trgx = fl_mdwn[0];
+					fl_trgy = fl_mdwn[1];
+				}
+
+				fl_barh = fl_sizy / fdat.length[0];				
+
+				if (spew && hard) { 
+					print("flst.set_draw_func:\tsizx : %f\n", fl_sizx); 
+					print("flst.set_draw_func:\tsizy : %f\n", fl_sizy); 
+					print("flst.set_draw_func:\tposx : %f\n", fl_posx); 
+					print("flst.set_draw_func:\tposy : %f\n", fl_posy);
+					print("flst.set_draw_func:\ttrgx : %f\n", fl_trgx); 
+					print("flst.set_draw_func:\ttrgy : %f\n", fl_trgy);
+				}
+
+// bar height
+
+				ctx.select_font_face("Monospace",Cairo.FontSlant.NORMAL,Cairo.FontWeight.BOLD);
+				ctx.set_font_size(fl_barh * 0.8); 
+				Cairo.TextExtents extents;
+				ctx.text_extents (idat[0,0], out extents);
+				//fl_barh = fl_barh;
+
+				if (spew && hard) { 
+					print("slst.set_draw_func:\tbarh : %f\n", fl_barh); 
+				}
+
+// clamp pos y
+
+				fl_posy = double.min(double.max(fl_posy, (0 - ((fl_barh * idat.length[0])-dah))), 0.0);
+
+// paint bg
+
+				var bc = Gdk.RGBA();
+				bc.parse(rowc);
+				ctx.set_source_rgba(bc.red,bc.green,bc.blue,1);
+				ctx.paint();
+
+// check selection hit
+
+				var px = 0.0;
+				var py = 0.0;
+				if (ipik && fl_mdwn[0] > 0 && izom == false && ipan == false && iscr == false) {
+					if (spew && hard) { print("slst.set_draw_func:\tchecking for selection at : %f x %f\n", fl_mdwn[0], fl_mdwn[1]); }
+					fl_rule = 99999;
+					for (int i = 0; i < idat.length[0]; i++) {
+						var onr = int.parse(idat[i,2]);
+						px = 0.0;
+						py = 0.0;
+						py = i * fl_barh;
+						py = py + fl_posy;
+						if (fl_mdwn[1] > py && fl_mdwn[1] < (py + (fl_barh - 1))) {
+							ssrr = onr;
+							fl_rule = onr;
+							if (spew) { print("slst.set_draw_func:\tselected row : %d\n", onr); }
+							fl_trgx = fl_mdwn[0]; fl_trgy = fl_mdwn[1];
+							break;
+						}
+					}
+				}
+
+// rows
+
+				if (spew && hard) { print("slst.set_draw_func:\tdrawing %d rows...\n", idat.length[0]); }
+
+				for (int i = 0; i < idat.length[0]; i++) {
+					px = 0.0;
+					py = 0.0;
+					py = i * fl_barh;
+					py = py + fl_posy;
+					string xinf = idat[i,0];
+					if (ssrr != int.parse(idat[i,2])) { 
+						if (bc.parse(idat[i,1]) == false) { bc.parse(txtc); }
+						if (spew && hard) { print("slst.set_draw_func:\tgroup %s color : %s\n", idat[i,2], idat[i,1]); }
+						ctx.set_source_rgba(bc.red,bc.green,bc.blue,((float) 0.1));
+						ctx.rectangle(px, py, daw, (fl_barh - 1));
+						ctx.fill ();
+						ctx.set_source_rgba(bc.red,bc.green,bc.blue,((float) 1.0));
+						ctx.move_to((px + 20.0), (py + (fl_barh * 0.75)));
+						ctx.show_text(xinf);
+					} else {
+						bc.parse(txtc);
+						ctx.set_source_rgba(bc.red,bc.green,bc.blue,((float) 1.0));
+						ctx.rectangle(px, py, daw, (fl_barh - 1));
+						ctx.fill();
+						bc.parse(rowc);
+						ctx.set_source_rgba(bc.red,bc.green,bc.blue,((float) 1.0));
+						ctx.move_to((px + 20), (py + (fl_barh * 0.75)));
+						ctx.show_text(xinf);
+					}
+				}
+
+// new rule selection detected, update the rest of the ui
+// this should only trigger when ssrr changes
+
+				if (spew && hard) { print("slst.set_draw_func:\tcomparing %d with %d...\n", ssrr, presel); }
+				if (ssrr >= 0 && ssrr != presel) {
+					dosel = true;
+				}
+
+// reset mouseown if not doing anythting with it
+
+				if (izom == false && ipan == false && iscr == false) {
+					fl_mdwn[0] = 0;
+					fl_mdwn[1] = 0;
+					ipik = false;
+				}
+				if (iscr) {
+					iscr = false;
+					fl_olsz = {fl_sizx, fl_sizy};
+					fl_olof = {fl_posx, fl_posy};
+					fl_olmd = {fl_trgx, fl_trgy};
+				}
+				if (spew && hard) { print("slst.set_draw_func:\tdraw complete\n"); }
+			}
+		});
 
 //////////////////////////
 //                      //
@@ -2231,8 +2461,8 @@ public class ftwin : Gtk.ApplicationWindow {
 				gi_sizx = gi_olsz[0];
 				gi_sizy = gi_olsz[1];
 				if (izom || iscr) {
-					gi_sizx = (gi_olsz[0] + (gi_moom[0] - gi_mdwn[0]));
-					gi_sizy = (gi_olsz[1] + (gi_moom[1] - gi_mdwn[1]));
+					gi_sizx = (gi_olsz[0] + gi_moom[0]);
+					gi_sizy = (gi_olsz[1] + gi_moom[1]);
 				}
 				gi_posx = gi_olof[0];
 				gi_posy = gi_olof[1];
@@ -2243,10 +2473,10 @@ public class ftwin : Gtk.ApplicationWindow {
 					gi_trgy = gi_olmd[1] + ( (gi_mdwn[1] - gi_olmd[1]) - ( (gi_mdwn[1] - gi_olmd[1]) * (gi_sizy / gi_olsz[1]) ) ) ;
 				}
 				if(ipan) {
-					gi_posx = gi_olof[0] + (gi_moom[0] - gi_mdwn[0]);
-					gi_posy = gi_olof[1] + (gi_moom[1] - gi_mdwn[1]);
-					gi_trgx = gi_olmd[0] + (gi_moom[0] - gi_mdwn[0]);
-					gi_trgy = gi_olmd[1] + (gi_moom[1] - gi_mdwn[1]);
+					gi_posx = gi_olof[0] + gi_moom[0];
+					gi_posy = gi_olof[1] + gi_moom[1];
+					gi_trgx = gi_olmd[0] + gi_moom[0];
+					gi_trgy = gi_olmd[1] + gi_moom[1];
 				}
 				if (ipik) {
 					gi_trgx = gi_mdwn[0];
@@ -2473,132 +2703,65 @@ public class ftwin : Gtk.ApplicationWindow {
 //                        //
 ////////////////////////////
 
-		/*
-		//gtk3 attach events to widget
-		gimg.add_events (Gdk.EventMask.TOUCH_MASK);
-		gimg.add_events (Gdk.EventMask.BUTTON_PRESS_MASK);
-		gimg.add_events (Gdk.EventMask.BUTTON2_MOTION_MASK);
-		gimg.add_events (Gdk.EventMask.BUTTON3_MOTION_MASK);
-		gimg.add_events (Gdk.EventMask.BUTTON_RELEASE_MASK);
-		gimg.add_events (Gdk.EventMask.POINTER_MOTION_MASK);
-		*/
+		Gtk.GestureDrag sl_touchpan = new Gtk.GestureDrag();
+		Gtk.EventControllerScroll sl_wheeler = new Gtk.EventControllerScroll(VERTICAL);
+		Gtk.EventControllerMotion sl_hover = new Gtk.EventControllerMotion();
 
-		//Gtk.GestureClick touchtap = new Gtk.GestureClick();
-		Gtk.GestureDrag touchpan = new Gtk.GestureDrag();
-		Gtk.EventControllerScroll wheeler = new Gtk.EventControllerScroll(VERTICAL);
+		Gtk.GestureDrag fl_touchpan = new Gtk.GestureDrag();
+		Gtk.EventControllerScroll fl_wheeler = new Gtk.EventControllerScroll(VERTICAL);
+		Gtk.EventControllerMotion fl_hover = new Gtk.EventControllerMotion();
 
-		//touchtap.set_button(Gdk.BUTTON_PRIMARY);
-		//touchpan.set_button(Gdk.BUTTON_SECONDARY);
-		touchpan.set_button(0);
+		Gtk.GestureDrag gi_touchpan = new Gtk.GestureDrag();
+		Gtk.EventControllerScroll gi_wheeler = new Gtk.EventControllerScroll(VERTICAL);
+		Gtk.EventControllerMotion gi_hover = new Gtk.EventControllerMotion();
 
-		//slst.add_controller (touchtap);
-		slst.add_controller(touchpan);
-		slst.add_controller(wheeler);
+		sl_touchpan.set_button(0);
+		fl_touchpan.set_button(0);
+		gi_touchpan.set_button(0);
 
-		//gimg.add_controller (touchtap);
-		//gimg.add_controller (touchpan);
-		/*
-		touchtap.pressed.connect((event, n, x, y) => {
-			ipik = true;
-			izom = false;
-			ipan = false;
-			iscr = false;
-			if (spew) { print("touchtap.pressed.connect\n"); }
+		slst.add_controller(sl_touchpan);
+		slst.add_controller(sl_wheeler);
+		slst.add_controller(sl_hover);
+		flst.add_controller(fl_touchpan);
+		flst.add_controller(fl_wheeler);
+		flst.add_controller(fl_hover);
+		gimg.add_controller(gi_touchpan);
+		gimg.add_controller(gi_wheeler);
+		gimg.add_controller(gi_hover);
+
+		sl_touchpan.drag_begin.connect ((event, x, y) => {
+			if (spew && hard) { print("touchpan_drag_begin\n"); }
+			ipik = (event.get_current_button() == 1);
+			izom = (event.get_current_button() == 3);
+			ipan = (event.get_current_button() == 2);
 			if (drwm == 0) { 
-				if (ipik) { 
-					sl_olmd = {x, y};
-					sl_trgy = y; 
-					sl_trgx = x;
-					slst.queue_draw(); 
-				}
-			}
-			if (drwm == 1) { 
-				if (ipik) { 
-					fl_olmd = {x, y};
-					fl_trgy = y; 
-					fl_trgx = x;
-					flst.queue_draw(); 
-				}
-			}
-			if (drwm == 2) { 
-			gi_mdwn = {x, y};
-				if (ipik) { 
-					gi_olmd = {x, y};
-					gi_trgy = y; 
-					gi_trgx = x;
-					gimg.queue_draw(); 
-				}
-			}
-		});
-
-		touchtap.released.connect((event, n, x, y) => {
-			if (spew) { print("touchtap.released.connect\n"); }
-			izom = false;
-			ipan = false;
-			iscr = false;
-			if (drwm == 0) { 
-				if (ipik) { 
-					slst.queue_draw(); 
-				}
-				sl_olsz = {sl_sizx, sl_sizy};
-				sl_olof = {sl_posx, sl_posy};
-				sl_olmd = {sl_trgx, sl_trgy};
-			}
-			if (drwm == 1) { 
-				if (ipik) { 
-					flst.queue_draw(); 
-				}
-				fl_olsz = {fl_sizx, fl_sizy};
-				fl_olof = {fl_posx, fl_posy};
-				fl_olmd = {fl_trgx, fl_trgy};
-			}
-			if (drwm == 2) { 
-				if (ipik) { 
-					gimg.queue_draw(); 
-				}
-				gi_olsz = {gi_sizx, gi_sizy};
-				gi_olof = {gi_posx, gi_posy};
-				gi_olmd = {gi_trgx, gi_trgy};
-			}
-		});
-		*/
-		touchpan.drag_begin.connect ((event, x, y) => {
-				if (spew) { print("touchpan_drag_begin\n"); }
-				ipik = (event.get_current_button() == 1);
-				izom = (event.get_current_button() == 3);
-				ipan = (event.get_current_button() == 2);
-				if (drwm == 0) { 
 					sl_mdwn = {x, y};
-					if (ipik) { 
-						sl_olmd = {sl_mdwn[0], sl_mdwn[1]};
-						sl_trgx = sl_mdwn[0]; 
-						sl_trgy = sl_mdwn[1]; 
-					}
+				if (ipik) { 
+					sl_olmd = {sl_mdwn[0], sl_mdwn[1]};
+					sl_trgx = sl_mdwn[0]; 
+					sl_trgy = sl_mdwn[1]; 
+					slst.queue_draw(); 
 				}
-				if (drwm == 1) { 
-					fl_mdwn = {x, y};
-				}
-				if (drwm == 2) { 
-					gi_mdwn = {x, y};
-				}
+			}
 		});
-		touchpan.drag_update.connect((event, x, y) => {
+		sl_touchpan.drag_update.connect((event, x, y) => {
 			if (drwm == 0) { 
 				if (izom == false && ipan == false && ipik == false) { sl_mdwn = {x, y}; }
 				sl_moom = {x, y};
 				if (izom || ipan) { slst.queue_draw(); }
 			}
 			if (drwm == 1) { 
+				if (izom == false && ipan == false && ipik == false) { fl_mdwn = {x, y}; }
 				fl_moom = {x, y};
-				flst.queue_draw();
+				if (izom || ipan) { flst.queue_draw(); }
 			}
 			if (drwm == 2) { 
 				gi_moom = {x, y};
 				gimg.queue_draw();
 			}
 		});
-		touchpan.drag_end.connect(() => {
-			if (spew) { print("touchpan_drag_end\n"); }
+		sl_touchpan.drag_end.connect(() => {
+			if (spew && hard) { print("touchpan_drag_end\n"); }
 			ipan = false;
 			izom = false;
 			iscr = false;
@@ -2609,24 +2772,128 @@ public class ftwin : Gtk.ApplicationWindow {
 				sl_olmd = {sl_trgx, sl_trgy};
 				sl_olbh = sl_barh;
 			}
-			if (drwm == 1) { 
-				fl_olsz = {fl_sizx, fl_sizy};
-				fl_olof = {fl_posx, fl_posy};
-				fl_olmd = {fl_trgx, fl_trgy};
-			}
-			if (drwm == 2) { 
-				gi_olsz = {gi_sizx, gi_sizy};
-				gi_olof = {gi_posx, gi_posy};
-				gi_olmd = {gi_trgx, gi_trgy};
-			}
-			if (dosel) { selectrow(8); dosel = false; }
+			if (dosel) { gi_trns = 99999; selectrow(8); dosel = false; }
 		});
-		wheeler.scroll.connect ((x,y) => {
+		sl_hover.motion.connect ((event, x, y) => {
+			if (drwm == 1) {
+				if (izom == false && ipan == false && ipik == false) { sl_mdwn = {x, y}; }
+			}
+		});
+		sl_wheeler.scroll.connect ((x,y) => {
 			if (spew && hard) { print("wheel y = %f\n", y); }
 			if (y != 0.0)  {
 				iscr = true;
-				sl_moom = {(sl_mdwn[0] - (y * 10.0)), (sl_mdwn[1] - (y * 10.0))};
-				slst.queue_draw();
+				if (drwm == 0) {
+					sl_moom = {(sl_mdwn[0] - (y * 20.0)), (sl_mdwn[1] - (y * 20.0))};
+					slst.queue_draw();
+				}
+				if (drwm == 1) {
+					fl_moom = {(fl_mdwn[0] - (y * 20.0)), (fl_mdwn[1] - (y * 20.0))};
+					flst.queue_draw();
+				}
+			}
+		});
+		fl_touchpan.drag_begin.connect ((event, x, y) => {
+			if (drwm == 1) { 
+				if (spew) { print("touchpan_drag_begin\n"); }
+				ipik = (event.get_current_button() == 1);
+				izom = (event.get_current_button() == 3);
+				ipan = (event.get_current_button() == 2);
+				fl_mdwn = {x, y};
+				if (ipik) { 
+					fl_olmd = {fl_mdwn[0], fl_mdwn[1]};
+					fl_trgx = fl_mdwn[0]; 
+					fl_trgy = fl_mdwn[1]; 
+					flst.queue_draw(); 
+				}
+			}
+		});
+		fl_touchpan.drag_update.connect((event, x, y) => {
+			if (drwm == 1) { 
+				if (izom == false && ipan == false && ipik == false) { fl_mdwn = {x, y}; }
+				fl_moom = {x, y};
+				if (izom || ipan) { flst.queue_draw(); }
+			}
+		});
+		fl_touchpan.drag_end.connect(() => {
+			if (drwm == 1) { 
+				if (spew) { print("touchpan_drag_end\n"); }
+				ipan = false;
+				izom = false;
+				iscr = false;
+				if (ipik) { flst.queue_draw(); }
+				fl_olsz = {fl_sizx, fl_sizy};
+				fl_olof = {fl_posx, fl_posy};
+				fl_olmd = {fl_trgx, fl_trgy};
+				fl_olbh = fl_barh;
+			}
+			if (dosel) { gi_trns = 99999; selectrow(8); dosel = false; }
+		});
+		fl_hover.motion.connect ((event, x, y) => {
+			if (drwm == 1) {
+				if (izom == false && ipan == false && ipik == false) { fl_mdwn = {x, y}; }
+			}
+		});
+		fl_wheeler.scroll.connect ((x,y) => {
+			if (drwm == 1) {
+				if (spew && hard) { print("wheel y = %f\n", y); }
+				iscr = true;
+				fl_moom = {(fl_mdwn[0] - (y * 20.0)), (fl_mdwn[1] - (y * 20.0))};
+				flst.queue_draw();
+			}
+		});
+		gi_touchpan.drag_begin.connect ((event, x, y) => {
+			if (drwm == 2) { 
+				if (spew) { print("touchpan_drag_begin\n"); }
+				ipik = (event.get_current_button() == 1);
+				izom = (event.get_current_button() == 3);
+				ipan = (event.get_current_button() == 2);
+				gi_mdwn = {x, y};
+				if (ipik) { 
+					gi_olmd = {gi_mdwn[0], gi_mdwn[1]};
+					gi_trgx = gi_mdwn[0]; 
+					gi_trgy = gi_mdwn[1]; 
+					gimg.queue_draw(); 
+				}
+			}
+		});
+		gi_touchpan.drag_update.connect((event, x, y) => {
+			if (drwm == 2) { 
+				if (izom == false && ipan == false && ipik == false) { gi_mdwn = {x, y}; }
+				gi_moom = {x, y};
+				if (izom || ipan) { gimg.queue_draw(); }
+			}
+		});
+		gi_hover.motion.connect ((event, x, y) => {
+			if (drwm == 2) {
+				if (izom == false && ipan == false && ipik == false) { gi_mdwn = {x, y}; }
+				//gi_moom = {x, y};
+				//if (izom || ipan) {
+					//gimg.queue_draw();
+				//}
+			}
+		});
+		gi_touchpan.drag_end.connect(() => {
+			if (drwm == 2) { 
+				if (spew) { print("touchpan_drag_end\n"); }
+				ipan = false;
+				izom = false;
+				iscr = false;
+				if (ipik) { gimg.queue_draw(); }
+				gi_olsz = {gi_sizx, gi_sizy};
+				gi_olof = {gi_posx, gi_posy};
+				gi_olmd = {gi_trgx, gi_trgy};
+				gi_olbh = gi_barh;
+			}
+			if (dosel) { selectrow(8); dosel = false; }
+		});
+		gi_wheeler.scroll.connect ((x,y) => {
+			if (drwm == 2) {
+				if (spew && hard) { print("wheel y = %f\n", y); }
+				iscr = true;
+				gi_moom = {(-y * 50.0), (-y * 50.0)};
+				//print("gi_moom[0] = %f, gi_moom[1] = %f\n", gi_moom[0], gi_moom[1]);
+				gimg.queue_draw();
 			}
 		});
 		/*
