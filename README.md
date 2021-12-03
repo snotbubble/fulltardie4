@@ -19,4 +19,4 @@ usage (pre-release testing, linux only)
 - ./fulltardie_gtk4_cairo
 
 # screenie
-![screenie](./211203_fulltardie_screenie.png)
+![screenie](./211203_fulltardie4_screenie.png)
