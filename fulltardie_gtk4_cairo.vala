@@ -19,10 +19,10 @@
 // - [X] make forecastlist pre-render function
 // - [X] convert listrenderers to preprocessors
 // - [X] stop touchtap and touchdrag from fighting each other
+// - [!] fix comboboxes: add adaptive colums and scrolling
 // - [ ] fix: forecast scroll-wheel-triggered draw randomly quitting
 // - [ ] find a way to do touch-drag without selecting stuff
 // - [ ] find new ways to break the damned info bubble and fix them
-// - [ ] fix comboboxes: add adaptive colums and scrolling
 // - [ ] fatten the divider for touch, or replace it
 // - [ ] double-click/tap divider to toggle vertical if window.w > window.h
 // - [ ] add checkssrr; minmax it
@@ -71,12 +71,18 @@ Gtk.Scale			gggg;	//         green						changed by selectrule
 Gtk.Scale			bbbb;	//         blue							changed by selectrule
 Gtk.Entry			hhhh;	//         hex							changed by selectrule
 Gtk.FlowBox			pmid;	//       parameter sub container		changed by selectrule
-Gtk.ComboBoxText	cevr;	//         every						changed by selectrule
-Gtk.ComboBoxText	cnth;	//         nth							changed by selectrule
-Gtk.ComboBoxText	cwkd;	//         weekday						changed by selectrule
-Gtk.ComboBoxText	cfdy;	//         fromday						changed by selectrule
-Gtk.ComboBoxText	cmth;	//         ofmonth						changed by selectrule
-Gtk.ComboBoxText	cfmo;	//         frommonth					changed by selectrule
+//Gtk.ComboBoxText	cevr;	//         every						changed by selectrule
+Gtk.DropDown		cevr;	//         every						changed by selectrule
+//Gtk.ComboBoxText	cnth;	//         nth							changed by selectrule
+Gtk.DropDown		cnth;	//         nth							changed by selectrule
+//Gtk.ComboBoxText	cwkd;	//         weekday						changed by selectrule
+Gtk.DropDown		cwkd;	//         weekday						changed by selectrule
+//Gtk.ComboBoxText	cfdy;	//         fromday						changed by selectrule
+Gtk.DropDown		cfdy;	//         fromday						changed by selectrule
+//Gtk.ComboBoxText	cmth;	//         ofmonth						changed by selectrule
+Gtk.DropDown		cmth;	//         ofmonth						changed by selectrule
+//Gtk.ComboBoxText	cfmo;	//         frommonth					changed by selectrule
+Gtk.DropDown		cfmo;	//         frommonth					changed by selectrule
 Gtk.SpinButton		sfye;	//         from year					changed by selectrule
 Gtk.Adjustment		yadj;	//           value range
 Gtk.FlowBox			plow;	//       parameter sub container
@@ -108,6 +114,13 @@ Gtk.CssProvider 	icsp;	// iso toggle css
 // needed to clear graph info bubble under certain circumstances
 
 int					gi_trns;
+
+// fucking containers within containers within containers within containers...
+
+Gtk.StringList		sfmo;	// used by selectrule
+Gtk.StringList		sofm;	// used by selectrule
+
+Gtk.MenuButton		mlod;	// testing
 
 // data returned from findnextdate
 
@@ -762,26 +775,33 @@ void selectrow (int ind) {
 	}
 
 	ffs = int.parse(sdat[ssrr,0]);
-	cevr.set_active(ffs);
+	//cevr.set_active(ffs);
+	cevr.set_selected(ffs);
 	ffs = int.parse(sdat[ssrr,1]);
-	cnth.set_active(ffs);
+	//cnth.set_active(ffs);
+	cnth.set_selected(ffs);
 	ffs = int.parse(sdat[ssrr,2]);
-	cwkd.set_active(ffs);
+	//cwkd.set_active(ffs);
+	cwkd.set_selected(ffs);
 	ffs = int.parse(sdat[ssrr,3]);
-	cfdy.set_active(ffs);
+	//cfdy.set_active(ffs);
+	cfdy.set_selected(ffs);
 	ffs = int.parse(sdat[ssrr,4]);
-	cmth.set_active(ffs);
-	cfmo.remove_all();
+	//cmth.set_active(ffs);
+	cmth.set_selected(ffs);
+	//cfmo.remove_all();
 
 // swap "to month" & "from month" as required for better english translation
 	
 	if (int.parse(sdat[ssrr,4]) == 0) {
-		for (var j = 0; j < ofmo.length; j++) { cfmo.append_text(ofmo[j]); }
+		cfmo.set_model(sofm);
+		//for (var j = 0; j < ofmo.length; j++) { cfmo.append_text(ofmo[j]); }
 	} else {
-		for (var j = 0; j < frmo.length; j++) { cfmo.append_text(frmo[j]); }
+		cfmo.set_model(sfmo);
+		//for (var j = 0; j < frmo.length; j++) { cfmo.append_text(frmo[j]); }
 	}
 	ffs = int.parse(sdat[ssrr,5]);
-	cfmo.set_active(ffs);
+	cfmo.set_selected(ffs);
 
 // name field = description
 
@@ -1165,6 +1185,15 @@ public class ftwin : Gtk.ApplicationWindow {
 		};
 		ldom = {31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31};
 
+// *sigh... turning lists into a different flavour of list, 
+// for a container of a list,
+// that goes into a container of containers... 
+// because: what-ifs
+// I miss doing stuff like:  drop-list 10x10 300x30 with [ color: red ] data: list
+
+		sfmo = new Gtk.StringList(frmo);
+		sofm = new Gtk.StringList(ofmo);
+
 // window
 
 		this.title = "fulltardie";
@@ -1188,23 +1217,23 @@ public class ftwin : Gtk.ApplicationWindow {
 
 // load/save menus
 
-		Gtk.MenuButton mlod = new Gtk.MenuButton();
+		mlod = new Gtk.MenuButton();
 		Gtk.MenuButton msav = new Gtk.MenuButton();
-		mlod.icon_name = "document-save-symbilic";
-		msav.icon_name = "document-open-symbolic";
+		mlod.icon_name = "document-open-symbolic";
+		msav.icon_name = "document-save-symbolic";
 		Gtk.Button bsav = new Button.with_label("save");
 		Gtk.Popover lpop = new Gtk.Popover();
 		Gtk.Popover spop = new Gtk.Popover();
-		Gtk.Box sbox = new Gtk.Box(VERTICAL,10);
+		Gtk.Box sbox = new Gtk.Box(VERTICAL,5);
 		Gtk.Box lbox = new Gtk.Box(VERTICAL,5);
-		sbox.margin_start = 10;
-		sbox.margin_end = 10;
-		sbox.margin_top = 10;
-		sbox.margin_bottom = 10;
-		lbox.margin_start = 10;
-		lbox.margin_end = 10;
-		lbox.margin_top = 10;
-		lbox.margin_bottom = 10;
+		sbox.margin_start = 5;
+		sbox.margin_end = 5;
+		sbox.margin_top = 5;
+		sbox.margin_bottom = 5;
+		lbox.margin_start = 5;
+		lbox.margin_end = 5;
+		lbox.margin_top = 5;
+		lbox.margin_bottom = 5;
 		Gtk.Entry escn = new Entry();
 		escn.text = "default";
 		sbox.append(escn);
@@ -1288,25 +1317,46 @@ public class ftwin : Gtk.ApplicationWindow {
 		pctr.append(tcol);
 
 // rule component combos
+// gtk4 doesn't support scrolling in combos, 
+// so these have to be dropdowns with super awkward 'listmodels'
+// luckily they can be built from arrays...
 
-		cevr = new ComboBoxText();
-		cnth = new ComboBoxText();
-		cwkd = new ComboBoxText();
-		cfdy = new ComboBoxText();
-		cmth = new ComboBoxText();
-		cfmo = new ComboBoxText();
-		for (var j = 0; j < evr.length; j++) {cevr.append_text(evr[j]);}
-		for (var j = 0; j < nth.length; j++) {cnth.append_text(nth[j]);}
-		for (var j = 0; j < wkd.length; j++) {cwkd.append_text(wkd[j]);}
-		for (var j = 0; j < fdy.length; j++) {cfdy.append_text(fdy[j]);}
-		for (var j = 0; j < mth.length; j++) {cmth.append_text(mth[j]);}
-		for (var j = 0; j < frmo.length; j++) {cfmo.append_text(frmo[j]);}
-		cevr.set_active(0);
-		cnth.set_active(0);
-		cwkd.set_active(0);
-		cfdy.set_active(0);
-		cmth.set_active(0);
-		cfmo.set_active(0);
+		cevr = new Gtk.DropDown(null,null);
+		cevr.set_model(new Gtk.StringList(evr));
+		cnth = new Gtk.DropDown(null,null);
+		cnth.set_model(new Gtk.StringList(nth));
+		cwkd = new Gtk.DropDown(null,null);
+		cwkd.set_model(new Gtk.StringList(wkd));
+		cfdy = new Gtk.DropDown(null,null);
+		cfdy.set_model(new Gtk.StringList(fdy));
+		cmth = new Gtk.DropDown(null,null);
+		cmth.set_model(new Gtk.StringList(mth));
+		cfmo = new Gtk.DropDown(null,null);
+		cfmo.set_model(new Gtk.StringList(frmo));
+		cevr.set_selected(0);
+		cnth.set_selected(0);
+		cwkd.set_selected(0);
+		cfdy.set_selected(0);
+		cmth.set_selected(0);
+		cfmo.set_selected(0);
+		//cevr = new ComboBoxText();
+		//cnth = new ComboBoxText();
+		//cwkd = new ComboBoxText();
+		//cfdy = new ComboBoxText();
+		//cmth = new ComboBoxText();
+		//cfmo = new ComboBoxText();
+		//for (var j = 0; j < evr.length; j++) {cevr.append_text(evr[j]);}
+		//for (var j = 0; j < nth.length; j++) {cnth.append_text(nth[j]);}
+		//for (var j = 0; j < wkd.length; j++) {cwkd.append_text(wkd[j]);}
+		//for (var j = 0; j < fdy.length; j++) {cfdy.append_text(fdy[j]);}
+		//for (var j = 0; j < mth.length; j++) {cmth.append_text(mth[j]);}
+		//for (var j = 0; j < frmo.length; j++) {cfmo.append_text(frmo[j]);}
+		//cevr.set_active(0);
+		//cnth.set_active(0);
+		//cwkd.set_active(0);
+		//cfdy.set_active(0);
+		//cmth.set_active(0);
+		//cfmo.set_active(0);
 
 /* 
 // not supported in gtk4:
@@ -1521,6 +1571,19 @@ public class ftwin : Gtk.ApplicationWindow {
 //                                             //
 /////////////////////////////////////////////////
 
+		cevr.notify["selected"].connect(() => {
+			if (doup) { 
+				var n = cevr.get_selected();
+				if (spew) { print("cevr.changed.connect:\tselecting item: %d\n", ((int) n)); }
+				//sdat[ssrr,0] = n.to_string();
+				sdat[ssrr,0] = "%d".printf(((int) n));
+				if (spew) { print("cevr.changed.connect:\tsdat[%d,0] = %s\n", ssrr, "%d".printf(((int) n)) ); }
+				forecast(4);
+				if (drwm == 1) { flst.queue_draw(); }
+				if (drwm == 2) { gimg.queue_draw(); }
+			}
+		});
+		/*
 		cevr.changed.connect(() => {
 			if (doup) { 
 				var n = cevr.get_active();
@@ -1531,21 +1594,24 @@ public class ftwin : Gtk.ApplicationWindow {
 				if (drwm == 2) { gimg.queue_draw(); }
 			}
 		});
-		cnth.changed.connect(() => {
+		*/
+		cnth.notify["selected"].connect(() => {
 			if (doup) {
-				var n = cnth.get_active();
-				if (spew) { print("cnth.changed.connect:\tselecting item: %d\n", n); }
-				sdat[ssrr,1] = n.to_string();
-				forecast(4); updateidat(4);
+				var n = cnth.get_selected();
+				if (spew) { print("cnth.changed.connect:\tselecting item: %d\n", ((int) n)); }
+				//sdat[ssrr,1] = n.to_string();
+				sdat[ssrr,1] = "%d".printf(((int) n));
+				forecast(4);
 				if (drwm == 1) { flst.queue_draw(); }
 				if (drwm == 2) { gimg.queue_draw(); }
 			}
 		});
-		cwkd.changed.connect(() => {
+		cwkd.notify["selected"].connect(() => {
 			if (doup) {
-				var n = cwkd.get_active();
-				if (spew) { print("cwkd.changed.connect:\tselecting item: %d\n", n); }
-				sdat[ssrr,2] = n.to_string();
+				var n = cwkd.get_selected();
+				if (spew) { print("cwkd.changed.connect:\tselecting item: %d\n", ((int) n)); }
+				//sdat[ssrr,2] = n.to_string();
+				sdat[ssrr,2] = "%d".printf(((int) n));
 				var ffs = int.parse(sdat[ssrr,2]);
 				if (ffs > 7) {
 					if (plow.get_child_at_index(1).get_child() == cnth) {
@@ -1562,48 +1628,52 @@ public class ftwin : Gtk.ApplicationWindow {
 						plow.insert(cwkd,2);
 					}
 				}
-				forecast(4); updateidat(4);
+				forecast(4);
 				if (drwm == 1) { flst.queue_draw(); }
 				if (drwm == 2) { gimg.queue_draw(); }
 			}
 		});
-		cfdy.changed.connect(() => {
+		cfdy.notify["selected"].connect(() => {
 			if (doup) {
-				var n = cfdy.get_active();
-				if (spew) { print("cfdy.changed.connect:\tselecting item: %d\n", n); }
-				sdat[ssrr,3] = n.to_string();
-				forecast(4); updateidat(4);
+				var n = cfdy.get_selected();
+				if (spew) { print("cfdy.changed.connect:\tselecting item: %d\n", ((int) n)); }
+				sdat[ssrr,3] = "%d".printf(((int) n));
+				//sdat[ssrr,3] = n.to_string();
+				forecast(4);
 				if (drwm == 1) { flst.queue_draw(); }
 				if (drwm == 2) { gimg.queue_draw(); }
 			}
 		});
-		cmth.changed.connect(() => {
+		cmth.notify["selected"].connect(() => {
 			if (doup) {
-				var n = cmth.get_active();
-				if (spew) { print("cmth.changed.connect:\tselecting item: %d\n", n); }
-				sdat[ssrr,4] = n.to_string();
+				var n = cmth.get_selected();
+				if (spew) { print("cmth.changed.connect:\tselecting item: %d\n", ((int) n)); }
+				//sdat[ssrr,4] = n.to_string();
+				sdat[ssrr,4] = "%d".printf(((int) n));
 				int ffs = int.parse(sdat[ssrr,5]);
 // change from-month to of-month if this combo is zeroed - so the rule makes mroe sense in english
 				doup = false;
-				cfmo.remove_all();
 				if (int.parse(sdat[ssrr,4]) == 0) {
-					for (var j = 0; j < ofmo.length; j++) { cfmo.append_text(ofmo[j]); }
+					cfmo.set_model(sofm);
+					//for (var j = 0; j < ofmo.length; j++) { cfmo.append_text(ofmo[j]); }
 				} else {
-					for (var j = 0; j < frmo.length; j++) { cfmo.append_text(frmo[j]); }
+					cfmo.set_model(sfmo);
+					//for (var j = 0; j < frmo.length; j++) { cfmo.append_text(frmo[j]); }
 				}
-				cfmo.set_active(ffs);
+				cfmo.set_selected(ffs);
 				doup = true;
-				forecast(4); updateidat(4);
+				forecast(4);
 				if (drwm == 1) { flst.queue_draw(); }
 				if (drwm == 2) { gimg.queue_draw(); }
 			}
 		});
-		cfmo.changed.connect(() => {
+		cfmo.notify["selected"].connect(() => {
 			if (doup) {
-				var n = cfmo.get_active();
-				if (spew) { print("cfmo.changed.connect:\tselecting item: %d\n", n); }
-				sdat[ssrr,5] = n.to_string();
-				forecast(4); updateidat(4);
+				var n = cfmo.get_selected();
+				if (spew) { print("cfmo.changed.connect:\tselecting item: %d\n", ((int) n)); }
+				//sdat[ssrr,5] = n.to_string();
+				sdat[ssrr,5] = "%d".printf(((int) n));
+				forecast(4);
 				if (drwm == 1) { flst.queue_draw(); }
 				if (drwm == 2) { gimg.queue_draw(); }
 			}
@@ -1617,7 +1687,7 @@ public class ftwin : Gtk.ApplicationWindow {
 				} else {
 					sdat[ssrr,6] = ((string) ("%lf").printf(v));
 				}
-				forecast(4); updateidat(4);
+				forecast(4);
 				if (drwm == 1) { flst.queue_draw(); }
 				if (drwm == 2) { gimg.queue_draw(); }
 			}
@@ -1626,7 +1696,7 @@ public class ftwin : Gtk.ApplicationWindow {
 			if (doup) {
 				if (spew) { print("samt.value_changed.connect:\tchanging value to: %f\n", samt.get_value()); }
 				sdat[ssrr,7] =((string) ("%.2lf").printf(samt.get_value()));;
-				forecast(4); updateidat(4);
+				forecast(4);
 				if (drwm == 1) { flst.queue_draw(); }
 				if (drwm == 2) { gimg.queue_draw(); }
 			}
@@ -1899,9 +1969,10 @@ public class ftwin : Gtk.ApplicationWindow {
 				if (spew) { print("rrrr.adjustment.value_changed.connect:\tchanging value to: %f\n", rrrr.adjustment.value); }
 				adjustgroupcolor(rrrr.adjustment.value, gggg.adjustment.value, bbbb.adjustment.value, hhhh.text, false, 4);
 				doup = true;
-				if (drwm == 0) { updateldat(4); slst.queue_draw(); }
-				if (drwm == 1) { updateidat(4); flst.queue_draw(); }
-				if (drwm == 2) { updateidat(4); gimg.queue_draw(); }
+				updateldat(4); updateidat(4);
+				if (drwm == 0) { slst.queue_draw(); }
+				if (drwm == 1) { flst.queue_draw(); }
+				if (drwm == 2) { gimg.queue_draw(); }
 			}
 		});
 		gggg.adjustment.value_changed.connect(() => {
@@ -1910,9 +1981,10 @@ public class ftwin : Gtk.ApplicationWindow {
 				if (spew) { print("gggg.adjustment.value_changed.connect:\tchanging value to: %f\n", gggg.adjustment.value); }
 				adjustgroupcolor(rrrr.adjustment.value, gggg.adjustment.value, bbbb.adjustment.value, hhhh.text, false, 4);
 				doup = true;
-				if (drwm == 0) { updateldat(4); slst.queue_draw(); }
-				if (drwm == 1) { updateidat(4); flst.queue_draw(); }
-				if (drwm == 2) { updateidat(4); gimg.queue_draw(); }
+				updateldat(4); updateidat(4);
+				if (drwm == 0) { slst.queue_draw(); }
+				if (drwm == 1) { flst.queue_draw(); }
+				if (drwm == 2) { gimg.queue_draw(); }
 			}
 		});
 		bbbb.adjustment.value_changed.connect(() => {
@@ -1921,9 +1993,10 @@ public class ftwin : Gtk.ApplicationWindow {
 				if (spew) { print("bbbb.adjustment.value_changed.connect:\tchanging value to: %f\n", bbbb.adjustment.value); }
 				adjustgroupcolor(rrrr.adjustment.value, gggg.adjustment.value, bbbb.adjustment.value, hhhh.text, false, 4);
 				doup = true;
-				if (drwm == 0) { updateldat(4); slst.queue_draw(); }
-				if (drwm == 1) { updateidat(4); flst.queue_draw(); }
-				if (drwm == 2) { updateidat(4); gimg.queue_draw(); }
+				updateldat(4); updateidat(4);
+				if (drwm == 0) { slst.queue_draw(); }
+				if (drwm == 1) { flst.queue_draw(); }
+				if (drwm == 2) { gimg.queue_draw(); }
 			}
 		});
 		hhhh.changed.connect (() => {
@@ -1936,9 +2009,10 @@ public class ftwin : Gtk.ApplicationWindow {
 						if (spew) { print("hhhh.changed.connect:\tchanging value to: %s\n", hhhh.text); }
 						adjustgroupcolor(rrrr.adjustment.value, gggg.adjustment.value, bbbb.adjustment.value, hx, true, 4);
 						doup = true;
-						if (drwm == 0) { updateldat(4); slst.queue_draw(); }
-						if (drwm == 1) { updateidat(4); flst.queue_draw(); }
-						if (drwm == 2) { updateidat(4); gimg.queue_draw(); }
+						updateldat(4); updateidat(4);
+						if (drwm == 0) { slst.queue_draw(); }
+						if (drwm == 1) { flst.queue_draw(); }
+						if (drwm == 2) { gimg.queue_draw(); }
 					}
 				}
 			}
@@ -1985,6 +2059,7 @@ public class ftwin : Gtk.ApplicationWindow {
 			//spop.popup();
 		//});
 		mlod.activate.connect (() =>  {
+			print("mlod clicked...\n");
 			if (spew) { print("mlod.clicked.connect:\tfetching saved scenarios...\n"); }
 			while (lbox.get_first_child() != null) {
 				if (spew) { print("mlod:\tremoving old popmenu item...\n"); }
@@ -2050,7 +2125,7 @@ public class ftwin : Gtk.ApplicationWindow {
 					}
 				}
 			}
-			lbox.show();
+			//lbox.show();
 			//lpop.show();
 		});
 
