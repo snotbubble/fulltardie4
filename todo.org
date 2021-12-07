@@ -5,7 +5,7 @@
 remove completed sub-items from the list
 
 * [1_WIP] UI
-** [1_WIP] setup params
+** [3_TST] setup params
 *** [3_TST] make touch scroll gutter [2/2]
 - [X] move iso next to rule name
 - [X] resize grids, or add blank space
@@ -18,8 +18,8 @@ remove completed sub-items from the list
 - [X] find matching group color on change
 - [X] find matching group color on rename
 - [X] update color params
-** [0_TDO] setup list
-*** [1_WIP] replace with draw
+** [1_WIP] setup list
+*** [3_TST] replace with draw
 **** [3_TST] add drawarea to notebook
 **** [3_TST] pre-process text
 **** [3_TST] make draw list
@@ -35,50 +35,48 @@ remove completed sub-items from the list
 - [X] targy ---------> sl_trgy
 - [X] barh ----------> sl_barh
 - [X] selectedttans--> sl_rule
-***** [3_TST] shared memory vars
+***** [3_TST] shared memory vars [4/4]
 - [X] graphscroll ---> iscr
 - [X] graphpick -----> ipik
 - [X] graphpan ------> ipan
 - [X] grpahzoom -----> izom
-***** [0_TDO] clamp y scroll [/]
-- [ ] offset can't be positive
-- [ ] offset can't be -(barh * (ldat.length[0] + pad))
+***** [3_TST] clamp y scroll [2/2]
+- [X] offset can't be positive
+- [X] offset can't be -(barh * (ldat.length[0] + pad))
 ***** [3_TST] clamp x scroll
-***** [0_TDO] move select row trigger to drag-end via bool variable
-**** make interaction events
-*** drag and drop re-ordering
+***** [3_TST] move select row trigger to drag-end via bool variable
+**** [3_TST] make interaction events
+*** [0_TDO] drag and drop re-ordering
 - [ ] long-press drag
 - [ ] shuffle list items on drag
 - [ ] reorder dat and re-redner on drop
 - [ ] remember list offset
-** [0_TDO] forecast list
-*** replace with draw
-- [ ] add drawarea to notebook
-- [ ] pre-process text
-- [ ] make draw list
-- [ ] make interaction events
+** [3_TST] forecast list
+*** [3_TST] replace with draw [4/4]
+- [X] add drawarea to notebook
+- [X] pre-process text
+- [X] make draw list
+- [X] make interaction events
 ** [1_WIP] graph
-*** FIX
-*** [1_WIP] touch pan
-*** [1_WIP] touch select
+*** [0_TDO] touch pan
+*** [0_TDO] touch select
 *** [0_TDO] touch zoom
-*** [0_TDO] sync selection to forecast selection
-**** zoom to selected month
-*** [0_TDO] zoom extents x on start/isolate
-**** add 40 padding left and right
-**** ensure it works with info overlay
-*** [0_TDO] zoom extents y on start/isolate
-**** fit to min 4px bar * whatever fits in the display area
-**** add 10 pad to top
-**** ensure it works with info overlay
+*** [3_TST] sync selection to forecast selection
+*** [1_WIP] zoom extents x on start/isolate
+**** [1_WIP] add 40 padding left and right
+**** [1_WIP] ensure it works with info overlay
+*** [3_TST] zoom extents y on start/isolate
+**** [3_TST] fit to min 4px bar * whatever fits in the display area
+**** [3_TST] add 20 pad to top
+**** [3_TST] ensure it works with info overlay
 *** [0_TDO] double-click/double-tap to zoom-extents
 **** use zoom extents x y as above
-*** [0_TDO] clear overlay on forecast, isolate & load
+*** [3_TST] clear overlay on forecast, isolate & load
 ** [0_TDO] calendar
 *** research drawing techniques in new project
 ** [2_FIX] toolbar
-*** [2_FIX] fix load popover
-*** [0_TDO] [#B] replace load icon with dots/hamburger
+*** [3_TST] fix load popover
+*** [6_AOK] replace load icon with symbolic icon
 *** [0_TDO] put menubuttons next to each other on the right
 *** [0_TDO] put title on the left
 ** [0_TDO] io
@@ -91,10 +89,8 @@ remove completed sub-items from the list
 - [X] indent output
 - [ ] brace the output (for folding)
 - [X] exclude pounded functions
-- [ ] include inputs where practical
 - [X] add a toggle for it!
 - [X] add toggle for draw output
-*** check for redundant activity [1/1]
 *** [1_WIP] cleanup [3/5]
 - [X] remove hsv code
 - [ ] remove commented code
