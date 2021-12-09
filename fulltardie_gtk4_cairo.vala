@@ -9,7 +9,7 @@
 // - comboboxes are busted atm: won't scroll, no columns.
 // - other features not checked yet.
 // - not checked on pinephone yet (probably busted due to gtk4 rendering issues).
-
+//
 // TODO
 // - [X] function ui input as globals instead of args
 // - [X] clean up names
@@ -32,6 +32,7 @@
 // - [ ] add checkssrr; minmax it
 // - [ ] find new ways to segfault and fix (let wife use it for 5sec)
 // - [ ] clean out test code & comments
+
 using Gtk;
 
 // vars used everywhere:
@@ -2721,7 +2722,7 @@ public class ftwin : Gtk.ApplicationWindow {
 				if (gi_trns != 99999) {
 					// now.format ("%d/%m/%Y")
 					string[] jj = (fdat[gi_trns,0]).split(" ");
-					string xinf = "".concat(jj[2], " ", moi((int.parse(jj[1]) - 1)), " 20", jj[0], " : ", fdat[gi_trns,5]);
+					string xinf = "".concat(fdat[gi_trns,0], " : ", fdat[gi_trns,5]);
 					Cairo.TextExtents extents;
 					ctx.text_extents (xinf, out extents);
 					var ibx = extents.width + 40;
@@ -2915,22 +2916,22 @@ public class ftwin : Gtk.ApplicationWindow {
 			}
 		});
 		gi_touchpan.drag_begin.connect ((event, x, y) => {
-			if (drwm == 2) { 
+			if (drwm == 2) {
 				if (spew && hard) { print("touchpan_drag_begin\n"); }
 				ipik = (event.get_current_button() == 1);
 				izom = (event.get_current_button() == 3);
 				ipan = (event.get_current_button() == 2);
 				gi_mdwn = {x, y};
-				if (ipik) { 
+				if (ipik) {
 					gi_olmd = {gi_mdwn[0], gi_mdwn[1]};
-					gi_trgx = gi_mdwn[0]; 
-					gi_trgy = gi_mdwn[1]; 
-					gimg.queue_draw(); 
+					gi_trgx = gi_mdwn[0];
+					gi_trgy = gi_mdwn[1];
+					gimg.queue_draw();
 				}
 			}
 		});
 		gi_touchpan.drag_update.connect((event, x, y) => {
-			if (drwm == 2) { 
+			if (drwm == 2) {
 				if (izom == false && ipan == false && ipik == false) { gi_mdwn = {x, y}; }
 				gi_moom = {x, y};
 				if (izom || ipan) { gimg.queue_draw(); }
