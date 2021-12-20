@@ -62,9 +62,9 @@ remove completed sub-items from the list
 *** [0_TDO] touch select
 *** [0_TDO] touch zoom
 *** [3_TST] sync selection to forecast selection
-*** [1_WIP] zoom extents x on start/isolate
-**** [1_WIP] add 40 padding left and right
-**** [1_WIP] ensure it works with info overlay
+*** [3_TST] zoom extents x on start/isolate
+**** [3_TST] add 40 padding left and right
+**** [3_TST] ensure it works with info overlay
 *** [3_TST] zoom extents y on start/isolate
 **** [3_TST] fit to min 4px bar * whatever fits in the display area
 **** [3_TST] add 20 pad to top
@@ -73,7 +73,26 @@ remove completed sub-items from the list
 **** use zoom extents x y as above
 *** [3_TST] clear overlay on forecast, isolate & load
 ** [0_TDO] calendar
-*** research drawing techniques in new project
+*** draw header
+**** month name overlay paralax
+- [ ] start x = calendar grid x, end x = calendar grid size x - monthname width
+- [ ] no paralax for vertical calendar
+*** draw day boxes per month
+**** arrange months horizontally or vertically based on container aspect
+- [ ] make window resize event handler
+- [ ] remember offsets
+- [ ] fixed aspect zooming
+- [ ] swap xy offsets when switching orientation
+**** day layout function
+- [ ] 7x6 grid
+- [ ] put weekday int in cimg data when forecasting
+- [ ] x = i % 7
+- [ ] y = rint( i / ( 6 / 42) )
+*** stack & fit transactions into day boxes
+**** set transparency to see day number
+**** set highlight border for selected rules
+**** use rule group color
+*** show info bubble on select (same as graph)
 ** [2_FIX] toolbar
 *** [3_TST] fix load popover
 *** [6_AOK] replace load icon with symbolic icon
@@ -85,9 +104,8 @@ remove completed sub-items from the list
 - [ ] check empty column data
 - [ ] check numbers
 ** [1_WIP] optimize
-*** [1_WIP] print everything [4/6]
+*** [6_AOK] print everything [4/4]
 - [X] indent output
-- [ ] brace the output (for folding)
 - [X] exclude pounded functions
 - [X] add a toggle for it!
 - [X] add toggle for draw output
