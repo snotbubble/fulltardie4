@@ -503,18 +503,18 @@ void updateidat (int ind) {
 				
 				idat[r,0] = "".concat(
 					fdat[r,0], " | ", 
-					("%" + sls[2].to_string() + "s").printf(fdat[r,2]), " | ",
-					("%-" + sls[3].to_string() + "s").printf(fdat[r,3]), " | ",
-					("%-" + sls[1].to_string() + "s").printf(fdat[r,1]), " | ",
+					("%" + sls[2].to_string() + "s").printf(fdat[r,2]), " | ", 
+					("%-" + sls[3].to_string() + "s").printf(fdat[r,3]), " | ", 
+					("%-" + sls[1].to_string() + "s").printf(fdat[r,1]), " | ", 
 					fdat[r,5]
 				);
-				idat[r,1] = rfg; 
+				idat[r,1] = rfg;
 				idat[r,2] = fdat[r,8];
 				idat[r,3] = fdat[r,9];
-				if (spew && hard) { 
-					print("%s\tupdateidat:\tidat[%d,0]: %s\n", tabni, r, idat[r,0]); 
+				if (spew && hard) {
+					print("%s\tupdateidat:\tidat[%d,0]: %s\n", tabni, r, idat[r,0]);
 					print("%s\tupdateidat:\tidat[%d,1]: %s\n", tabni, r, idat[r,1]);
-					print("%s\tupdateidat:\tidat[%d,2]: %s\n", tabni, r, idat[r,2]); 
+					print("%s\tupdateidat:\tidat[%d,2]: %s\n", tabni, r, idat[r,2]);
 				}
 			}
 		}
@@ -645,7 +645,7 @@ string[] getchoicelist(int idx, int ind) {
 
 	for (var r = 0; r < sdat.length[0]; r++) {
 		int cidx = idx + 3;
-		rgba = Gdk.RGBA;
+		rgba = Gdk.RGBA();
 		if (rgba.parse(sdat[r,cidx]) == false) {
 			if (cidx == 11) { sdat[r,cidx] = txtc; }
 			if (cidx == 12) { sdat[r,cidx] = txtc; }
@@ -1691,9 +1691,10 @@ public class ftwin : Gtk.ApplicationWindow {
 					gi_rsof = gi_olof;
 					gi_olsz = {(gimg.get_allocated_width() - 80.0), (gimg.get_allocated_height() - 40.0)};
 					gi_olof = {40.0,20.0};
-				} else { 
+					gi_moom = {0.0,0.0};
+				} else {
 					fl_olsz = fl_rssz;
-					gi_olsz = gi_rssz; 
+					gi_olsz = gi_rssz;
 					gi_olof = gi_rsof;
 				}
 				if (drwm == 1) { flst.queue_draw(); }
@@ -2591,11 +2592,17 @@ public class ftwin : Gtk.ApplicationWindow {
 // get x scale & zero, scale both to container
 
 				var zro = minrt.abs();
-				var xmx = zro + maxrt;
+				print("gimg.set_draw_func:\tminrt==== %f\n", zro);
+				var xmx = zro + double.max(0.0,maxrt);
+				print("gimg.set_draw_func:\tmaxrt==== %f\n", maxrt.abs());
+				print("gimg.set_draw_func:\txmx====== %f\n", xmx);
 				var sfc = gi_sizx / xmx;
 				zro = zro * sfc;
 				zro = Math.floor(zro);
-
+				print("gimg.set_draw_func:\tdaw====== %f\n", daw);
+				print("gimg.set_draw_func:\tgi_sizx = %f\n", gi_sizx);
+				print("gimg.set_draw_func:\tsfc ===== %f\n", sfc);
+				print("gimg.set_draw_func:\tzro ===== %f\n", zro);
 // paint bg
 
 				var bc = Gdk.RGBA();
@@ -2815,17 +2822,17 @@ public class ftwin : Gtk.ApplicationWindow {
 		gimg.add_controller(gi_hover);
 
 		sl_touchpan.drag_begin.connect ((event, x, y) => {
-			if (drwm == 0) { 
+			if (drwm == 0) {
 				if (spew && hard) { print("touchpan_drag_begin\n"); }
 				ipik = (event.get_current_button() == 1);
 				izom = (event.get_current_button() == 3);
 				ipan = (event.get_current_button() == 2);
 				sl_mdwn = {x, y};
-				if (ipik) { 
+				if (ipik) {
 					sl_olmd = {sl_mdwn[0], sl_mdwn[1]};
-					sl_trgx = sl_mdwn[0]; 
-					sl_trgy = sl_mdwn[1]; 
-					slst.queue_draw(); 
+					sl_trgx = sl_mdwn[0];
+					sl_trgy = sl_mdwn[1];
+					slst.queue_draw();
 				}
 			}
 		});
