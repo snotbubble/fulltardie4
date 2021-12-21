@@ -22,7 +22,10 @@
 // - [X] fix: forecast scroll-wheel-triggered draw randomly quitting
 // - [X] fix comboboxes: add adaptive colums and scrolling
 // - [X] allow x panning in lists where text is cut-off
-// - [ ] improve fitting of isolated forecast in lists and graph
+// - [X] improve fitting of isolated forecast in lists and graph
+// - [!] add group isolate toggle
+// - [!] iso toggle ignores group iso transforms
+// - [!] group iso ignores iso transforms
 // - [ ] double-tap graph bg to fit
 // - [ ] always forecast if iso is checked
 // - [ ] find a way to do touch-drag without selecting stuff
@@ -94,6 +97,7 @@ Gtk.Box				xgrp;	//         parameter sub container
 Gtk.Label			lgrp;	//           label
 Gtk.ComboBoxText	cgrp;	//           groups						changed by selectrule
 Gtk.Entry			egrp;	//             group text
+Gtk.ToggleButton	tgrp;	//           isolate group				changed by selectrule
 Gtk.Box				xcat;	//         parameter sub container
 Gtk.Label			lcat;	//           label
 Gtk.ComboBoxText	ccat;	//           categories					changed by selectrule
@@ -541,11 +545,22 @@ void forecast (int ind) {
 		var rfc = findnextdate (aaa, ssrr, nind);
 		for (var f = 0; f < rfc.length; f++ ) { ttt += rfc[f]; }
 	} else {
-		for (var u = 0; u < sdat.length[0]; u++) {
-			string[] aaa = {};
-			for (var g = 0; g < 13; g++) { aaa += sdat[u,g]; }
-			var rfc = findnextdate (aaa, u, nind);
-			for (var f = 0; f < rfc.length; f++ ) { ttt += rfc[f]; }
+		if (tgrp.get_active()) {
+			for (var u = 0; u < sdat.length[0]; u++) {
+				if (sdat[u,9] == sdat[ssrr,9]) {
+					string[] aaa = {};
+					for (var g = 0; g < 13; g++) { aaa += sdat[u,g]; }
+					var rfc = findnextdate (aaa, u, nind);
+					for (var f = 0; f < rfc.length; f++ ) { ttt += rfc[f]; }
+				}
+			}
+		} else {
+			for (var u = 0; u < sdat.length[0]; u++) {
+				string[] aaa = {};
+				for (var g = 0; g < 13; g++) { aaa += sdat[u,g]; }
+				var rfc = findnextdate (aaa, u, nind);
+				for (var f = 0; f < rfc.length; f++ ) { ttt += rfc[f]; }
+			}
 		}
 	}
 
@@ -1379,6 +1394,7 @@ public class ftwin : Gtk.ApplicationWindow {
 		egrp.set_halign(START);
 		egrp.set_width_chars(8);
 		egrp.set_hexpand(false);
+		tgrp = new Gtk.ToggleButton.with_label("ISO");
 
 // category
 
@@ -1410,6 +1426,7 @@ public class ftwin : Gtk.ApplicationWindow {
 		xgrp = new Gtk.Box(HORIZONTAL,0);
 		xgrp.append(lgrp);
 		xgrp.append(cgrp);
+		xgrp.append(tgrp);
 		xgrp.set_halign(START);
 		xgrp.set_size_request(10,10);
 		xgrp.set_hexpand(false);
@@ -1684,18 +1701,59 @@ public class ftwin : Gtk.ApplicationWindow {
 				forecast(4); updateidat(4);
 				print("flst.get_allocated_height() : %f\n", flst.get_allocated_height());
 // capture and restore forecastlist size regardless of visibility, width irrelevant
-				if (tiso.get_active()) {
-					fl_rssz = fl_olsz;
+				if (tiso.get_active()) { 
+					if (tgrp.get_active() == false) {
+						fl_rssz = fl_olsz;
+						gi_rssz = gi_olsz;
+						gi_rsof = gi_olof;
+					}
 					fl_olsz = {flst.get_allocated_width(), double.max(flst.get_allocated_height(), (20.0 * fdat.length[0]))};
-					gi_rssz = gi_olsz;
-					gi_rsof = gi_olof;
 					gi_olsz = {(gimg.get_allocated_width() - 80.0), (gimg.get_allocated_height() - 40.0)};
 					gi_olof = {40.0,20.0};
 					gi_moom = {0.0,0.0};
 				} else {
-					fl_olsz = fl_rssz;
-					gi_olsz = gi_rssz;
-					gi_olof = gi_rsof;
+					if (tgrp.get_active() == false) {
+						fl_olsz = fl_rssz;
+						gi_olsz = gi_rssz;
+						gi_olof = gi_rsof;
+					} else {
+						fl_olsz = {flst.get_allocated_width(), double.max(flst.get_allocated_height(), (20.0 * fdat.length[0]))};
+						gi_olsz = {(gimg.get_allocated_width() - 80.0), (gimg.get_allocated_height() - 40.0)};
+						gi_olof = {40.0,20.0};
+						gi_moom = {0.0,0.0};
+					}
+				}
+				if (drwm == 1) { flst.queue_draw(); }
+				if (drwm == 2) { gimg.queue_draw(); }
+			}
+		});
+		tgrp.toggled.connect(() => {
+			if (doup) {
+				if (spew) { print("iso.toggled.connect:\ttoggling isolate...\n"); }
+				forecast(4); updateidat(4);
+				print("flst.get_allocated_height() : %f\n", flst.get_allocated_height());
+// capture and restore forecastlist size regardless of visibility, width irrelevant
+				if (tgrp.get_active()) {
+					if (tiso.get_active() == false) {
+						fl_rssz = fl_olsz;
+						gi_rssz = gi_olsz;
+						gi_rsof = gi_olof;
+					}
+					fl_olsz = {flst.get_allocated_width(), double.max(flst.get_allocated_height(), (20.0 * fdat.length[0]))};
+					gi_olsz = {(gimg.get_allocated_width() - 80.0), (gimg.get_allocated_height() - 40.0)};
+					gi_olof = {40.0,20.0};
+					gi_moom = {0.0,0.0};
+				} else {
+					if (tiso.get_active() == false) {
+						fl_olsz = fl_rssz;
+						gi_olsz = gi_rssz;
+						gi_olof = gi_rsof;
+					} else {
+						fl_olsz = {flst.get_allocated_width(), double.max(flst.get_allocated_height(), (20.0 * fdat.length[0]))};
+						gi_olsz = {(gimg.get_allocated_width() - 80.0), (gimg.get_allocated_height() - 40.0)};
+						gi_olof = {40.0,20.0};
+						gi_moom = {0.0,0.0};
+					}
 				}
 				if (drwm == 1) { flst.queue_draw(); }
 				if (drwm == 2) { gimg.queue_draw(); }
@@ -2592,17 +2650,21 @@ public class ftwin : Gtk.ApplicationWindow {
 // get x scale & zero, scale both to container
 
 				var zro = minrt.abs();
-				print("gimg.set_draw_func:\tminrt==== %f\n", zro);
 				var xmx = zro + double.max(0.0,maxrt);
-				print("gimg.set_draw_func:\tmaxrt==== %f\n", maxrt.abs());
-				print("gimg.set_draw_func:\txmx====== %f\n", xmx);
+				if (spew && hard) { 
+					print("gimg.set_draw_func:\tminrt==== %f\n", zro);
+					print("gimg.set_draw_func:\tmaxrt==== %f\n", maxrt.abs());
+					print("gimg.set_draw_func:\txmx====== %f\n", xmx);
+				}
 				var sfc = gi_sizx / xmx;
 				zro = zro * sfc;
 				zro = Math.floor(zro);
-				print("gimg.set_draw_func:\tdaw====== %f\n", daw);
-				print("gimg.set_draw_func:\tgi_sizx = %f\n", gi_sizx);
-				print("gimg.set_draw_func:\tsfc ===== %f\n", sfc);
-				print("gimg.set_draw_func:\tzro ===== %f\n", zro);
+				if (spew && hard) { 
+					print("gimg.set_draw_func:\tdaw====== %f\n", daw);
+					print("gimg.set_draw_func:\tgi_sizx = %f\n", gi_sizx);
+					print("gimg.set_draw_func:\tsfc ===== %f\n", sfc);
+					print("gimg.set_draw_func:\tzro ===== %f\n", zro);
+				}
 // paint bg
 
 				var bc = Gdk.RGBA();
