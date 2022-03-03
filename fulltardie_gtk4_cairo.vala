@@ -60,9 +60,11 @@ Gtk.Notebook		tabp;	//   viewer toplever container			checked by selectrule and f
 Gtk.Label			lsls;	//     label
 Gtk.Label			lfcl;	//     label
 Gtk.Label			limg;	//     label
+Gtk.Label			lcal;	//     label
 Gtk.DrawingArea		slst;	//     setup list						redrawn by various
 Gtk.DrawingArea		flst;	//     forecast list					redrawn by various
 Gtk.DrawingArea		gimg;	//     graph							redrawn by various
+Gtk.DrawingArea		cimg;	//     calendar
 Gtk.ScrolledWindow  xscr;	//   parameter toplevel container
 Gtk.Grid			pgrd;	//     parameter layout container
 Gtk.Box				ptop;	//       parameter sub container
@@ -118,10 +120,12 @@ int[]				ldom;	// last day of each month
 
 Gtk.CssProvider 	tcsp;	// color toggle css
 Gtk.CssProvider 	icsp;	// iso toggle css
+Gtk.CssProvider		pcsp;	// paned css
 
 // needed to clear graph info bubble under certain circumstances
 
 int					gi_trns;
+int					ci_trns;
 
 // fucking containers within containers within containers within containers...
 
@@ -913,6 +917,7 @@ public class ftwin : Gtk.ApplicationWindow {
 		Gdk.ScrollDirection scrolldir;
 		tcsp = new Gtk.CssProvider();	// color toggle css
 		icsp = new Gtk.CssProvider();	// iso toggle css
+		pcsp = new Gtk.CssProvider();	// paned (divider) css
 
 // shared memory for draw-areas, these come from user input
 
@@ -977,6 +982,26 @@ public class ftwin : Gtk.ApplicationWindow {
 		double[]	gi_rssz = {300.0,300.0};	// graph pre-draw size memory for isolate
 		double[]	gi_rsof = {40.0,20.0};		// graph pre-draw offset memory for isolate
 		gi_trns = 0;							// graph selecte transaction
+
+// graph memory
+
+		double[] 	ci_moom = {0.0,0.0};		// graph live mousemove xy
+		double[] 	ci_mdwn = {0.0,0.0};		// graph live mousedown xy
+		double[] 	ci_olsz = {300.0,300.0};	// graph pre-draw size xy
+		double[] 	ci_olof = {0.0,0.0};		// graph pre-draw offset xy
+		double[] 	ci_olmd = {0.0,0.0};		// graph pre-draw mousedown xy
+		double		ci_olbh = 10.0;				// graph pre-draw bar height
+		double 		ci_posx = 0.0;				// graph post-draw offset x
+		double 		ci_posy = 0.0;				// graph post_draw offset y
+		double		ci_sizx	= 0.0;				// graph post-draw size x
+		double		ci_sizy = 0.0;				// graph post-draw size y 
+		double 		ci_trgx	= 0.0;				// graph post-draw mousedown x
+		double 		ci_trgy = 0.0;				// graph post-draw moudedown y
+		double 		ci_barh = 30.0;				// graph row height
+		int 		ci_rule = 0;				// graph selected rule
+		double[]	ci_rssz = {300.0,300.0};	// graph pre-draw size memory for isolate
+		double[]	ci_rsof = {40.0,20.0};		// graph pre-draw offset memory for isolate
+		ci_trns = 0;							// graph selecte transaction
 
 // common draw output
 
@@ -1193,10 +1218,10 @@ public class ftwin : Gtk.ApplicationWindow {
 			if (spew) { print("yeh bye\n"); } 
 			return false; 
 		});
-		this.set_margin_top(10);
-		this.set_margin_bottom(10);
-		this.set_margin_start(10);
-		this.set_margin_end(10);
+		//this.set_margin_top(10);
+		//this.set_margin_bottom(10);
+		//this.set_margin_start(10);
+		//this.set_margin_end(10);
 
 // header
 
@@ -1243,10 +1268,10 @@ public class ftwin : Gtk.ApplicationWindow {
 		var lsls = new Label(null);
 		lsls.set_markup("<b><big>setup</big></b>");
 		slst = new Gtk.DrawingArea();
-		slst.margin_top = 10;
-		slst.margin_bottom = 10;
-		slst.margin_start = 10;
-		slst.margin_end = 10;
+		slst.margin_top = 0;
+		slst.margin_bottom = 0;
+		slst.margin_start = 0;
+		slst.margin_end = 0;
 
 // name
 
@@ -1478,23 +1503,29 @@ public class ftwin : Gtk.ApplicationWindow {
 
 		xscr = new Gtk.ScrolledWindow();
 		xscr.set_child(pgrd);
-		xscr.margin_top = 10;
+		xscr.margin_top = 0;
 
 // foecast list
 
 		lfcl = new Label(null);
 		lfcl.set_markup("<b><big>forecast</big></b>");
 		flst = new Gtk.DrawingArea();
-		flst.margin_top = 10;
-		flst.margin_bottom = 10;
-		flst.margin_start = 10;
-		flst.margin_end = 10;
+		flst.margin_top = 0;
+		flst.margin_bottom = 0;
+		flst.margin_start = 0;
+		flst.margin_end = 0;
 
 // graph page
 
 		limg = new Label(null);
 		limg.set_markup("<b><big>graph</big></b>");
 		gimg = new Gtk.DrawingArea();
+
+// calendar page
+
+		lcal = new Label(null);
+		lcal.set_markup("<b><big>calendar</big></b>");
+		cimg = new Gtk.DrawingArea();
 
 // notebook
 
@@ -1504,7 +1535,8 @@ public class ftwin : Gtk.ApplicationWindow {
 		tabp.append_page(slst, lsls);
 		tabp.append_page(flst, lfcl);
 		tabp.append_page(gimg, limg);
-		tabp.margin_bottom = 10;
+		tabp.append_page(cimg, lcal);
+		tabp.margin_bottom = 0;
 
 // separator
 
@@ -1514,6 +1546,13 @@ public class ftwin : Gtk.ApplicationWindow {
 		hdiv.resize_end_child = true;
 		hdiv.position = 450;
 		hdiv.wide_handle = true;
+		var fch = (Gtk.Widget) hdiv.get_start_child();
+		var sep = (Gtk.Widget) fch.get_next_sibling();
+		//sep.height_request = 30;
+		string pcss = ".wide { background: #00000040; min-width: 30px; min-height: 30px; }";
+		pcsp.load_from_data(pcss.data);
+		sep.get_style_context().add_provider(pcsp, Gtk.STYLE_PROVIDER_PRIORITY_USER);	
+		sep.get_style_context().add_class("wide");
 
 // add ui to window
 
@@ -1543,6 +1582,11 @@ public class ftwin : Gtk.ApplicationWindow {
 //    EEEEEEEEEEEEEE   VVVVVVVVVV      EEEEEEEEEEEEEE  NNNNNN    NNNN      TTTTTT      SSSSSSSSSSSSSS    //
 //                                                                                                       //
 ///////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+		this.size_allocate.connect(this.callback);
+		this.size_allocate((win) => {
+			print("window resized\n");
+		});
 
 //tab panel selection action
 
@@ -2851,11 +2895,131 @@ public class ftwin : Gtk.ApplicationWindow {
 			//return true;
 		});
 
-////////////////////////////
-//                        //
-//    graph interaction   //
-//                        //
-////////////////////////////
+//////////////////////////////
+//                          //
+//    calendar rendering    //
+//                          //
+//////////////////////////////
+
+		cimg.set_draw_func((da, ctx, daw, dah) => {
+			//print("\ngimg.draw: started...\n");
+				var presel = ssrr;
+				var csx = cimg.get_allocated_width();
+				var csy = cimg.get_allocated_height();
+
+// calendar coords
+
+				ci_sizx = ci_olsz[0];
+				ci_sizy = ci_olsz[1];
+				if (izom || iscr) {
+					ci_sizx = (ci_olsz[0] + ci_moom[0]);
+					ci_sizy = (ci_olsz[1] + ci_moom[1]);
+				}
+				ci_posx = ci_olof[0];
+				ci_posy = ci_olof[1];
+				if (izom || iscr) {
+					ci_posx = ci_olof[0] + ( (ci_mdwn[0] - ci_olof[0]) - ( (ci_mdwn[0] - ci_olof[0]) * (ci_sizx / ci_olsz[0]) ) ) ;
+					ci_posy = ci_olof[1] + ( (ci_mdwn[1] - ci_olof[1]) - ( (ci_mdwn[1] - ci_olof[1]) * (ci_sizy / ci_olsz[1]) ) ) ;
+					ci_trgx = ci_olmd[0] + ( (ci_mdwn[0] - ci_olmd[0]) - ( (ci_mdwn[0] - ci_olmd[0]) * (ci_sizx / ci_olsz[0]) ) ) ;
+					ci_trgy = ci_olmd[1] + ( (ci_mdwn[1] - ci_olmd[1]) - ( (ci_mdwn[1] - ci_olmd[1]) * (ci_sizy / ci_olsz[1]) ) ) ;
+				}
+				if(ipan) {
+					ci_posx = ci_olof[0] + ci_moom[0];
+					ci_posy = ci_olof[1] + ci_moom[1];
+					ci_trgx = ci_olmd[0] + ci_moom[0];
+					ci_trgy = ci_olmd[1] + ci_moom[1];
+				}
+				if (ipik) {
+					ci_trgx = ci_mdwn[0];
+					ci_trgy = ci_mdwn[1];
+				}
+
+// graph margins, not used for now
+
+				//var margx = 40.0;
+				//var margy = 40.0;
+
+// bar height
+
+				ci_barh = ci_sizy / fdat.length[0];
+
+// get min/max vals from running total
+
+				var minrt = 999999999.0;
+				var maxrt = -999999999.0;
+				for (int i = 0; i < fdat.length[0]; i++) {
+					if (fdat[i,5] != "") {
+						maxrt = double.max(maxrt, double.parse(fdat[i,5]));
+						minrt = double.min(minrt, double.parse(fdat[i,5]));
+					}
+				}
+
+// get x scale & zero, scale both to container
+
+				var zro = minrt.abs();
+				var xmx = zro + double.max(0.0,maxrt);
+				if (spew && hard) { 
+					print("cimg.set_draw_func:\tminrt==== %f\n", zro);
+					print("cimg.set_draw_func:\tmaxrt==== %f\n", maxrt.abs());
+					print("cimg.set_draw_func:\txmx====== %f\n", xmx);
+				}
+				var sfc = gi_sizx / xmx;
+				zro = zro * sfc;
+				zro = Math.floor(zro);
+				if (spew && hard) { 
+					print("cimg.set_draw_func:\tdaw====== %f\n", daw);
+					print("cimg.set_draw_func:\tci_sizx = %f\n", ci_sizx);
+					print("cimg.set_draw_func:\tsfc ===== %f\n", sfc);
+					print("cimg.set_draw_func:\tzro ===== %f\n", zro);
+				}
+// paint bg
+
+				var bc = Gdk.RGBA();
+				bc.parse(rowc);
+				ctx.set_source_rgba(bc.red,bc.green,bc.blue,1);
+				ctx.paint();
+
+// months
+//
+// +------------------------------------+
+// |                                    |
+// | monthname                          |
+// |                                    |
+// |  su   mo   tu   we   th   fr   sa  |
+// | +--+ +--+ +--+ +--+ +--+ +--+ +--+ |
+// | |  | |  | |  | |  | |  | |  | |  | |
+// | +--+ +--+ +--+ +--+ +--+ +--+ +--+ |
+// | +--+ +--+ +--+ +--+ +--+ +--+ +--+ |
+// | |  | |  | |  | |  | |  | |  | |  | |
+// | +--+ +--+ +--+ +--+ +--+ +--+ +--+ |
+// | +--+ +--+ +--+ +--+ +--+ +--+ +--+ |
+// | |  | |  | |  | |  | |  | |  | |  | |
+// | +--+ +--+ +--+ +--+ +--+ +--+ +--+ |
+// | +--+ +--+ +--+ +--+ +--+ +--+ +--+ |
+// | |  | |  | |  | |  | |  | |  | |  | |
+// | +--+ +--+ +--+ +--+ +--+ +--+ +--+ |
+// | +--+ +--+ +--+ +--+ +--+ +--+ +--+ |
+// | |  | |  | |  | |  | |  | |  | |  | |
+// | +--+ +--+ +--+ +--+ +--+ +--+ +--+ |
+// | +--+ +--+ +--+ +--+ +--+ +--+ +--+ |
+// | |  | |  | |  | |  | |  | |  | |  | |
+// | +--+ +--+ +--+ +--+ +--+ +--+ +--+ |
+// |                                    |
+// | monthname                          |
+// |                                    |
+// |  su   mo   tu   we   th   fr   sa  |
+// | +--+ +--+ +--+ +--+ +--+ +--+ +--+ |
+// | |  | |  | |  | |  | |  | |  | |  | |
+// | +--+ +--+ +--+ +--+ +--+ +--+ +--+ |
+// ...
+
+		});
+
+////////////////////////
+//                    //
+//    interaction     //
+//                    //
+////////////////////////
 
 		Gtk.GestureDrag sl_touchpan = new Gtk.GestureDrag();
 		Gtk.EventControllerScroll sl_wheeler = new Gtk.EventControllerScroll(VERTICAL);
