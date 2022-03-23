@@ -1553,6 +1553,7 @@ public class ftwin : Gtk.ApplicationWindow {
 		pcsp.load_from_data(pcss.data);
 		sep.get_style_context().add_provider(pcsp, Gtk.STYLE_PROVIDER_PRIORITY_USER);	
 		sep.get_style_context().add_class("wide");
+		//hdiv.set_orientation(HORIZONTAL);
 
 // add ui to window
 
@@ -1583,10 +1584,6 @@ public class ftwin : Gtk.ApplicationWindow {
 //                                                                                                       //
 ///////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-		this.size_allocate.connect(this.callback);
-		this.size_allocate((win) => {
-			print("window resized\n");
-		});
 
 //tab panel selection action
 
@@ -1602,6 +1599,16 @@ public class ftwin : Gtk.ApplicationWindow {
 				if (drwm == 2) { gimg.queue_draw(); }
 			}
 		});
+
+// hdiv doubleclick/tap action
+
+		//hdiv.doubleclicked.connect(() = => {
+		//	if (hdiv.get_orientation = VERTICAL) {
+		//		hdiv.set_orientation(HORIZONTAL);
+		//	} else {
+		//		hdiv.set_orientation(VERTICAL);
+		//	}
+		//});
 
 /////////////////////////////////////////////////
 //                                             //
@@ -2978,6 +2985,23 @@ public class ftwin : Gtk.ApplicationWindow {
 				bc.parse(rowc);
 				ctx.set_source_rgba(bc.red,bc.green,bc.blue,1);
 				ctx.paint();
+				bc.parse(txtc);
+				int bxw = ((int) (csx / 7.0));
+				ctx.select_font_face("Monospace",Cairo.FontSlant.NORMAL,Cairo.FontWeight.BOLD);
+				ctx.set_font_size ((int) (bxw * 0.5));
+				print("bxw=%d\n",bxw);
+				for ( int x = 0; x < 42; x ++ ) {
+					ctx.set_source_rgba(bc.red,bc.green,bc.blue,0.5);
+					int xx = (int) (((x/7.0) * 7.0) % 7);
+					int yy = (int) (x/7.0);
+					//print("xx = %d\n", xx);
+					//print("yy = %d\n", yy);
+					ctx.rectangle((xx*bxw),(yy*bxw),(bxw - 2),(bxw - 2));
+					ctx.fill();
+					ctx.set_source_rgba(bc.red, bc.green, bc.blue, 0.75);
+					ctx.move_to(((xx*bxw)+2),((yy*bxw)+2+((int) (bxw * 0.5))));
+					ctx.show_text("%d".printf((x + 1)));
+				}
 
 // months
 //
@@ -3022,14 +3046,17 @@ public class ftwin : Gtk.ApplicationWindow {
 ////////////////////////
 
 		Gtk.GestureDrag sl_touchpan = new Gtk.GestureDrag();
+		//Gtk.GestureZoom sl_touchzoom = new Gtk.GestureZoom();
 		Gtk.EventControllerScroll sl_wheeler = new Gtk.EventControllerScroll(VERTICAL);
 		Gtk.EventControllerMotion sl_hover = new Gtk.EventControllerMotion();
 
 		Gtk.GestureDrag fl_touchpan = new Gtk.GestureDrag();
+		//Gtk.GestureZoom fl_touchzoom = new Gtk.GestureZoom();
 		Gtk.EventControllerScroll fl_wheeler = new Gtk.EventControllerScroll(VERTICAL);
 		Gtk.EventControllerMotion fl_hover = new Gtk.EventControllerMotion();
 
 		Gtk.GestureDrag gi_touchpan = new Gtk.GestureDrag();
+		//Gtk.GestureZoom gi_touchzoom = new Gtk.GestureZoom();
 		Gtk.EventControllerScroll gi_wheeler = new Gtk.EventControllerScroll(VERTICAL);
 		Gtk.EventControllerMotion gi_hover = new Gtk.EventControllerMotion();
 
@@ -3038,12 +3065,17 @@ public class ftwin : Gtk.ApplicationWindow {
 		gi_touchpan.set_button(0);
 
 		slst.add_controller(sl_touchpan);
+		//slst.add_controller(sl_touchzoom);
 		slst.add_controller(sl_wheeler);
 		slst.add_controller(sl_hover);
+
 		flst.add_controller(fl_touchpan);
+		//flst.add_controller(fl_touchzoom);
 		flst.add_controller(fl_wheeler);
 		flst.add_controller(fl_hover);
+
 		gimg.add_controller(gi_touchpan);
+		//gimg.add_controller(gi_touchzoom);
 		gimg.add_controller(gi_wheeler);
 		gimg.add_controller(gi_hover);
 
@@ -3094,6 +3126,7 @@ public class ftwin : Gtk.ApplicationWindow {
 			if (drwm == 0) {
 				//sl_moom = {(sl_mdwn[0] - (y * 20.0)), (sl_mdwn[1] - (y * 20.0))};
 				sl_moom = {0.0, (-y * 20.0)};
+				print("wheel y = %f\n",y);
 				slst.queue_draw();
 			}
 		});
