@@ -1,40 +1,11 @@
 // gtk4 translation
-// by c.p.brown 2021
+// by c.p.brown 2022
 //
 // replacing listboxes with cairo draw-areas
 // css roundtripping was lagging, producing incorrect results, and generally retarded
 //
-// status: broken parameter ui.
+// status: usable, without safety.
 // - compiles, runs, renders lists and graph.
-// - comboboxes are busted atm: won't scroll, no columns.
-// - other features not checked yet.
-// - not checked on pinephone yet (probably busted due to gtk4 rendering issues).
-//
-// TODO
-// - [X] function ui input as globals instead of args
-// - [X] clean up names
-// - [X] clean up events
-// - [X] replace listboxes with drawareas
-// - [X] make setuplist pre-render function
-// - [X] make forecastlist pre-render function
-// - [X] convert listrenderers to preprocessors
-// - [X] stop touchtap and touchdrag from fighting each other
-// - [X] fix: forecast scroll-wheel-triggered draw randomly quitting
-// - [X] fix comboboxes: add adaptive colums and scrolling
-// - [X] allow x panning in lists where text is cut-off
-// - [X] improve fitting of isolated forecast in lists and graph
-// - [!] add group isolate toggle
-// - [!] iso toggle ignores group iso transforms
-// - [!] group iso ignores iso transforms
-// - [ ] double-tap graph bg to fit
-// - [ ] always forecast if iso is checked
-// - [ ] find a way to do touch-drag without selecting stuff
-// - [ ] find new ways to break the damned info bubble and fix them
-// - [ ] fatten the divider for touch, or replace it
-// - [ ] double-click/tap divider to toggle vertical if window.w > window.h
-// - [ ] add checkssrr; minmax it
-// - [ ] find new ways to segfault and fix (let wife use it for 5sec)
-// - [ ] clean out test code & comments
 
 using Gtk;
 
