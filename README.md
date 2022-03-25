@@ -41,5 +41,6 @@ forecast transactions that have complex recurrence rules
 - valac fulltardie_gtk4_cairo.vala --pkg gtk4 -X -lm
 - ./fulltardie_gtk4_cairo
 
-# screenie
+# screenies
 ![screenie](./211203_fulltardie4_screenie.png)
+![calendar](./220325_fulltardie_screenie.png)
