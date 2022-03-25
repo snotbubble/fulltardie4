@@ -9,6 +9,12 @@ forecast transactions that have complex recurrence rules
 - compact ui for phone
 - expanded forecasting capabilities
 
+# status
+- work in progress (see todo below).
+- usable for forecasting, saves and loads, but without any safety; you can crash it without too much effort, eg: deleting all items, blank names, etc..
+- calendar is non-interactive as of writing.
+- touch interaction for pinephone not implemented yet.
+
 # TODO
 - [ ] find cause of random startup graphics error on pinephone
 - [ ] implement touch interaction with cairo drawingarea
