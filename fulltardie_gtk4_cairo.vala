@@ -114,6 +114,8 @@ Gtk.Adjustment		aadj;	//             value range
 string[] 			ofmo;	// of month
 string[]			frmo;	// from month
 string[]			shmo;	// short month list
+string[]			lomo;	// long month list
+string[]			shdy;	// short day name
 int[]				ldom;	// last day of each month
 
 // css providers for ui that doesn't need to be draw-area
@@ -181,6 +183,20 @@ int iwkd (DateWeekday wd) {
 	if (wd == FRIDAY) 		{ return 5; }
 	if (wd == SATURDAY) 	{ return 6; }
 	if (wd == SUNDAY) 		{ return 7; }
+	if (wd == BAD_WEEKDAY) 	{ return 0; }
+	return 0;
+}
+
+// get calendar weekday index
+
+int lwkd (DateWeekday wd) {
+	if (wd == SUNDAY) 		{ return 1; }
+	if (wd == MONDAY) 		{ return 2; }
+	if (wd == TUESDAY) 		{ return 3; }
+	if (wd == WEDNESDAY) 	{ return 4; }
+	if (wd == THURSDAY) 	{ return 5; }
+	if (wd == FRIDAY) 		{ return 6; }
+	if (wd == SATURDAY) 	{ return 7; }
 	if (wd == BAD_WEEKDAY) 	{ return 0; }
 	return 0;
 }
@@ -1007,6 +1023,47 @@ public class ftwin : Gtk.ApplicationWindow {
 
 		bool		dosel = false;				// select a rule on mouse-up
 
+// last days of month
+
+		ldom = {31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31};
+
+// long month strings
+
+		lomo = {
+			"January", 
+			"February", 
+			"March", 
+			"April", 
+			"May", 
+			"June", 
+			"July", 
+			"August", 
+			"September", 
+			"October", 
+			"November", 
+			"December"
+		};
+
+// month and day offsets and durations for calendar, do-once so it goes here
+
+		var currentdatetime = new DateTime.now_local();
+		int thismonth = currentdatetime.get_month();
+		var currentdate = Date();
+		int[] firstwkd = {0,0,0,0,0,0,0,0,0,0,0,0};
+		int[] lastdmy = {0,0,0,0,0,0,0,0,0,0,0,0};
+		int[] nextmonthsidx = {0,0,0,0,0,0,0,0,0,0,0,0};
+		int[] nextyears = {0,0,0,0,0,0,0,0,0,0,0,0};
+		string[] nextmonths = {"","","","","","","","","","","",""};
+		currentdate.set_dmy(((DateDay) 1), (thismonth - 1), ((DateYear) currentdatetime.get_year()));
+		for (int i = 0; i < 12; i++) {
+			currentdate.add_months(1);
+			firstwkd[i] = lwkd(currentdate.get_weekday());
+			lastdmy[i] = ldom[(currentdate.get_month() - 1)];
+			nextmonths[i] = lomo[(currentdate.get_month() - 1)];
+			nextmonthsidx[i] = currentdate.get_month();
+			nextyears[i] = currentdate.get_year() - 2000;
+		}
+
 // sample data
 		
 		sdat = {
@@ -1200,7 +1257,7 @@ public class ftwin : Gtk.ApplicationWindow {
 			"NOV", 
 			"DEC"
 		};
-		ldom = {31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31};
+		shdy = {"su","mo","tu","we","th","fr","sa"};
 
 // *sigh... turning lists into a different flavour of list, 
 // for a container of a list,
@@ -1569,8 +1626,9 @@ public class ftwin : Gtk.ApplicationWindow {
 		updateldat(4);
 		forecast(4);
 		fl_olsz = {360,(20.0 * fdat.length[0])};
-		gi_olsz = {260,370.0};
+		gi_olsz = {260.0,370.0};
 		gi_olof = {40.0,20.0};
+		ci_olsz = {260.0,370.0};
 		//slst.queue_draw();
 
 
@@ -1597,6 +1655,7 @@ public class ftwin : Gtk.ApplicationWindow {
 				if (drwm == 0) { slst.queue_draw(); }
 				if (drwm == 1) { flst.queue_draw(); }
 				if (drwm == 2) { gimg.queue_draw(); }
+				if (drwm == 3) { cimg.queue_draw(); }
 			}
 		});
 
@@ -2841,7 +2900,7 @@ public class ftwin : Gtk.ApplicationWindow {
 
 				if (gi_trns != 99999) {
 					// now.format ("%d/%m/%Y")
-					string[] jj = (fdat[gi_trns,0]).split(" ");
+					// string[] jj = (fdat[gi_trns,0]).split(" ");
 					string xinf = "".concat(fdat[gi_trns,0], " : ", fdat[gi_trns,5]);
 					Cairo.TextExtents extents;
 					ctx.text_extents (xinf, out extents);
@@ -2941,66 +3000,128 @@ public class ftwin : Gtk.ApplicationWindow {
 					ci_trgy = ci_mdwn[1];
 				}
 
-// graph margins, not used for now
-
-				//var margx = 40.0;
-				//var margy = 40.0;
-
-// bar height
-
-				ci_barh = ci_sizy / fdat.length[0];
-
-// get min/max vals from running total
-
-				var minrt = 999999999.0;
-				var maxrt = -999999999.0;
-				for (int i = 0; i < fdat.length[0]; i++) {
-					if (fdat[i,5] != "") {
-						maxrt = double.max(maxrt, double.parse(fdat[i,5]));
-						minrt = double.min(minrt, double.parse(fdat[i,5]));
-					}
-				}
-
-// get x scale & zero, scale both to container
-
-				var zro = minrt.abs();
-				var xmx = zro + double.max(0.0,maxrt);
-				if (spew && hard) { 
-					print("cimg.set_draw_func:\tminrt==== %f\n", zro);
-					print("cimg.set_draw_func:\tmaxrt==== %f\n", maxrt.abs());
-					print("cimg.set_draw_func:\txmx====== %f\n", xmx);
-				}
-				var sfc = gi_sizx / xmx;
-				zro = zro * sfc;
-				zro = Math.floor(zro);
-				if (spew && hard) { 
-					print("cimg.set_draw_func:\tdaw====== %f\n", daw);
-					print("cimg.set_draw_func:\tci_sizx = %f\n", ci_sizx);
-					print("cimg.set_draw_func:\tsfc ===== %f\n", sfc);
-					print("cimg.set_draw_func:\tzro ===== %f\n", zro);
-				}
 // paint bg
 
 				var bc = Gdk.RGBA();
 				bc.parse(rowc);
 				ctx.set_source_rgba(bc.red,bc.green,bc.blue,1);
 				ctx.paint();
+
+// calendar vars
+
 				bc.parse(txtc);
-				int bxw = ((int) (csx / 7.0));
+				double bxw = (ci_sizx / 7.0);
+				double bxh = (ci_sizy / 8.0);
 				ctx.select_font_face("Monospace",Cairo.FontSlant.NORMAL,Cairo.FontWeight.BOLD);
-				ctx.set_font_size ((int) (bxw * 0.5));
-				print("bxw=%d\n",bxw);
-				for ( int x = 0; x < 42; x ++ ) {
-					ctx.set_source_rgba(bc.red,bc.green,bc.blue,0.5);
-					int xx = (int) (((x/7.0) * 7.0) % 7);
-					int yy = (int) (x/7.0);
-					//print("xx = %d\n", xx);
-					//print("yy = %d\n", yy);
-					ctx.rectangle((xx*bxw),(yy*bxw),(bxw - 2),(bxw - 2));
-					ctx.fill();
+				ctx.set_font_size(bxw);
+				string xinf = "September";
+				Cairo.TextExtents extents;
+				ctx.text_extents (xinf, out extents);
+				var xx = 0;
+				var yy = 0;
+				var fx = 0.0;
+				var fy = 0.0;
+				var my = ci_posy;
+
+// months
+
+				for ( int m = 0; m < 12; m ++ ) {
 					ctx.set_source_rgba(bc.red, bc.green, bc.blue, 0.75);
-					ctx.move_to(((xx*bxw)+2),((yy*bxw)+2+((int) (bxw * 0.5))));
-					ctx.show_text("%d".printf((x + 1)));
+					my = my + (bxh * 7.0);
+					//my = (my + ci_posy);
+					double mx = ci_posx + 5.0; 
+					ctx.move_to(mx,(my+(extents.height)));
+					ctx.set_font_size(bxw);
+					ctx.show_text("%s".printf(nextmonths[m]));
+					my = my + extents.height;
+
+// weekday header
+
+					for ( int x = 0; x < 7; x++ ) {
+						xx = (int) (((x/7.0) * 7.0) % 7);
+						fx = (xx * bxw) + mx;
+						fy = my;
+						ctx.move_to((fx+(bxw*0.25)),(fy+(bxh * 0.75)));
+						ctx.set_font_size ((int) (bxw * 0.25));
+						ctx.show_text("%s".printf(shdy[x]));
+					}
+					my = my + bxh;
+
+// days
+
+					var dx = 1;
+					var ix = 0;
+					for ( int x = 0; x < 42; x ++ ) {
+						xx = (int) (((x/7.0) * 7.0) % 7);
+						yy = (int) (x/7.0);
+						fx = (xx * bxw) + mx;
+						fy = (yy * bxh) + my;
+						ctx.rectangle(fx,fy,(bxw - 2),(bxh - 2));
+						if ( x >= (firstwkd[m] - 1) && dx <= lastdmy[m]) {
+							ctx.set_source_rgba(bc.red,bc.green,bc.blue,0.25);
+							ctx.fill();
+							ctx.set_source_rgba(bc.red, bc.green, bc.blue, 0.5);
+							ctx.move_to((fx+2),(fy+2+((int) (bxh * 0.5))));
+							ctx.set_font_size ((int) (double.min(bxh,bxw) * 0.5));
+							ctx.show_text("%d".printf(dx));
+
+// event data
+
+							string[] vdatc = {};
+							string[] vdatd = {};
+							for (int i = ix; i < fdat.length[0]; i++) {
+								int fdmo = int.parse(fdat[i,9]);
+								if (fdmo == nextmonthsidx[m]) {
+									string[] fddt = fdat[i,0].split(" ");
+									//print("fddt[2] = %d\n", int.parse(fddt[2]));
+									if (int.parse(fddt[0]) == dx && int.parse(fddt[2]) == nextyears[m]) {
+										ix = (i + 1);
+										vdatc += fdat[i,7];
+										vdatd += fdat[i,1];
+									}
+								}
+								if (fdmo > nextmonthsidx[m]) { break; }
+							}
+							if (vdatc.length > 0) {
+								//print("vdatc.length = %d\n", vdatc.length);
+								for (int v = 0; v < vdatc.length; v++ ) {
+									bc.parse(vdatc[v]);
+									ctx.set_source_rgba(bc.red, bc.green, bc.blue, 0.5);
+									double vdh = (bxh - 2) / vdatc.length;
+									ctx.rectangle(fx,(fy + (v * vdh)),(bxw - 2),vdh);
+									ctx.fill();
+								}
+							}
+							dx += 1;
+							bc.parse(txtc);
+						} else {
+							ctx.set_source_rgba(bc.red,bc.green,bc.blue,0.1);
+							ctx.fill();
+						}
+					}
+				}
+
+// new rule selection detected, update the rest of the ui
+
+				//if (ssrr >= 0 && ssrr != presel) {
+				//	dosel = true;
+				//}
+
+// reset mouseown if not doing anythting with it
+
+				if (izom == false && ipan == false && iscr == false) {
+					ci_mdwn[0] = 0;
+					ci_mdwn[1] = 0;
+					ipik = false;
+				}
+
+// there's no wheel_end event so these go here... its a pulse event so works ok
+
+				if (iscr) { 
+					iscr = false;
+					ci_olsz = {ci_sizx, ci_sizy};
+					ci_olof = {ci_posx, ci_posy};
+					ci_olmd = {ci_trgx, ci_trgy};
 				}
 
 // months
@@ -3060,9 +3181,15 @@ public class ftwin : Gtk.ApplicationWindow {
 		Gtk.EventControllerScroll gi_wheeler = new Gtk.EventControllerScroll(VERTICAL);
 		Gtk.EventControllerMotion gi_hover = new Gtk.EventControllerMotion();
 
+		Gtk.GestureDrag ci_touchpan = new Gtk.GestureDrag();
+		//Gtk.GestureZoom ci_touchzoom = new Gtk.GestureZoom();
+		Gtk.EventControllerScroll ci_wheeler = new Gtk.EventControllerScroll(VERTICAL);
+		Gtk.EventControllerMotion ci_hover = new Gtk.EventControllerMotion();
+
 		sl_touchpan.set_button(0);
 		fl_touchpan.set_button(0);
 		gi_touchpan.set_button(0);
+		ci_touchpan.set_button(0);
 
 		slst.add_controller(sl_touchpan);
 		//slst.add_controller(sl_touchzoom);
@@ -3078,6 +3205,11 @@ public class ftwin : Gtk.ApplicationWindow {
 		//gimg.add_controller(gi_touchzoom);
 		gimg.add_controller(gi_wheeler);
 		gimg.add_controller(gi_hover);
+
+		cimg.add_controller(ci_touchpan);
+		//cimg.add_controller(ci_touchzoom);
+		cimg.add_controller(ci_wheeler);
+		cimg.add_controller(ci_hover);
 
 		sl_touchpan.drag_begin.connect ((event, x, y) => {
 			if (drwm == 0) {
@@ -3235,6 +3367,61 @@ public class ftwin : Gtk.ApplicationWindow {
 				gimg.queue_draw();
 			}
 		});
+		ci_touchpan.drag_begin.connect ((event, x, y) => {
+			if (drwm == 3) {
+				if (spew && hard) { print("touchpan_drag_begin\n"); }
+				ipik = (event.get_current_button() == 1);
+				izom = (event.get_current_button() == 3);
+				ipan = (event.get_current_button() == 2);
+				ci_mdwn = {x, y};
+				if (ipik) {
+					ci_olmd = {ci_mdwn[0], ci_mdwn[1]};
+					ci_trgx = ci_mdwn[0];
+					ci_trgy = ci_mdwn[1];
+					cimg.queue_draw();
+				}
+			}
+		});
+		ci_touchpan.drag_update.connect((event, x, y) => {
+			if (drwm == 3) {
+				if (izom == false && ipan == false && ipik == false) { ci_mdwn = {x, y}; }
+				ci_moom = {x, y};
+				if (izom || ipan) { cimg.queue_draw(); }
+			}
+		});
+		ci_hover.motion.connect ((event, x, y) => {
+			if (drwm == 3) {
+				if (izom == false && ipan == false && ipik == false) { ci_mdwn = {x, y}; }
+				//ci_moom = {x, y};
+				//if (izom || ipan) {
+					//cimg.queue_draw();
+				//}
+			}
+		});
+		ci_touchpan.drag_end.connect(() => {
+			if (drwm == 3) { 
+				if (spew && hard) { print("touchpan_drag_end\n"); }
+				ipan = false;
+				izom = false;
+				iscr = false;
+				if (ipik) { cimg.queue_draw(); }
+				ci_olsz = {ci_sizx, ci_sizy};
+				ci_olof = {ci_posx, ci_posy};
+				ci_olmd = {ci_trgx, ci_trgy};
+				ci_olbh = ci_barh;
+			}
+			if (dosel) { selectrow(8); dosel = false; }
+		});
+		ci_wheeler.scroll.connect ((x,y) => {
+			if (drwm == 3) {
+				if (spew && hard) { print("wheel y = %f\n", y); }
+				iscr = true;
+				ci_moom = {(-y * 50.0), (-y * 50.0)};
+				//print("gi_moom[0] = %f, ci_moom[1] = %f\n", ci_moom[0], ci_moom[1]);
+				cimg.queue_draw();
+			}
+		});
+
 		/*
 		wheeler.scroll_end.connect (() => {
 			//iscr = false;
