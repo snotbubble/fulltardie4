@@ -1656,6 +1656,7 @@ public class ftwin : Gtk.ApplicationWindow {
 				forecast(4);
 				if (drwm == 1) { flst.queue_draw(); }
 				if (drwm == 2) { gimg.queue_draw(); }
+				if (drwm == 3) { cimg.queue_draw(); }
 			}
 		});
 		/*
@@ -1679,6 +1680,7 @@ public class ftwin : Gtk.ApplicationWindow {
 				forecast(4);
 				if (drwm == 1) { flst.queue_draw(); }
 				if (drwm == 2) { gimg.queue_draw(); }
+				if (drwm == 3) { cimg.queue_draw(); }
 			}
 		});
 		cwkd.notify["selected"].connect(() => {
@@ -1706,6 +1708,7 @@ public class ftwin : Gtk.ApplicationWindow {
 				forecast(4);
 				if (drwm == 1) { flst.queue_draw(); }
 				if (drwm == 2) { gimg.queue_draw(); }
+				if (drwm == 3) { cimg.queue_draw(); }
 			}
 		});
 		cfdy.notify["selected"].connect(() => {
@@ -1717,6 +1720,7 @@ public class ftwin : Gtk.ApplicationWindow {
 				forecast(4);
 				if (drwm == 1) { flst.queue_draw(); }
 				if (drwm == 2) { gimg.queue_draw(); }
+				if (drwm == 3) { cimg.queue_draw(); }
 			}
 		});
 		cmth.notify["selected"].connect(() => {
@@ -1740,6 +1744,7 @@ public class ftwin : Gtk.ApplicationWindow {
 				forecast(4);
 				if (drwm == 1) { flst.queue_draw(); }
 				if (drwm == 2) { gimg.queue_draw(); }
+				if (drwm == 3) { cimg.queue_draw(); }
 			}
 		});
 		cfmo.notify["selected"].connect(() => {
@@ -1751,6 +1756,7 @@ public class ftwin : Gtk.ApplicationWindow {
 				forecast(4);
 				if (drwm == 1) { flst.queue_draw(); }
 				if (drwm == 2) { gimg.queue_draw(); }
+				if (drwm == 3) { cimg.queue_draw(); }
 			}
 		});
 		sfye.changed.connect(() => {
@@ -1765,6 +1771,7 @@ public class ftwin : Gtk.ApplicationWindow {
 				forecast(4);
 				if (drwm == 1) { flst.queue_draw(); }
 				if (drwm == 2) { gimg.queue_draw(); }
+				if (drwm == 3) { cimg.queue_draw(); }
 			}
 		});
 		samt.value_changed.connect(() => {
@@ -1774,6 +1781,7 @@ public class ftwin : Gtk.ApplicationWindow {
 				forecast(4);
 				if (drwm == 1) { flst.queue_draw(); }
 				if (drwm == 2) { gimg.queue_draw(); }
+				//if (drwm == 3) { cimg.queue_draw(); }
 			}
 		});
 		tiso.toggled.connect(() => {
@@ -1806,6 +1814,7 @@ public class ftwin : Gtk.ApplicationWindow {
 				}
 				if (drwm == 1) { flst.queue_draw(); }
 				if (drwm == 2) { gimg.queue_draw(); }
+				if (drwm == 3) { cimg.queue_draw(); }
 			}
 		});
 		tgrp.toggled.connect(() => {
@@ -1838,6 +1847,7 @@ public class ftwin : Gtk.ApplicationWindow {
 				}
 				if (drwm == 1) { flst.queue_draw(); }
 				if (drwm == 2) { gimg.queue_draw(); }
+				if (drwm == 3) { cimg.queue_draw(); }
 			}
 		});
 
@@ -1902,6 +1912,7 @@ public class ftwin : Gtk.ApplicationWindow {
 				if (drwm == 0) { updateldat(4); slst.queue_draw(); }
 				if (drwm == 1) { updateidat(4); flst.queue_draw(); }
 				if (drwm == 2) { updateidat(4); gimg.queue_draw(); }
+				if (drwm == 3) { updateidat(4); cimg.queue_draw(); }
 			}
 		});
 		Gtk.Entry vvvv = (Entry) cgrp.get_child();
@@ -1971,6 +1982,7 @@ public class ftwin : Gtk.ApplicationWindow {
 						if (drwm == 0) { updateldat(4); slst.queue_draw(); }
 						if (drwm == 1) { updateidat(4); flst.queue_draw(); }
 						if (drwm == 2) { updateidat(4); gimg.queue_draw(); }
+						if (drwm == 3) { updateidat(4); cimg.queue_draw(); }
 					}
 				}
 			}
@@ -2051,6 +2063,7 @@ public class ftwin : Gtk.ApplicationWindow {
 							updateidat(4);
 							if (drwm == 1) { flst.queue_draw(); }
 							if (drwm == 2) { gimg.queue_draw(); }
+							if (drwm == 3) { cimg.queue_draw(); }
 						}
 						doup = true;
 					}
@@ -2093,6 +2106,7 @@ public class ftwin : Gtk.ApplicationWindow {
 				if (drwm == 0) { slst.queue_draw(); }
 				if (drwm == 1) { flst.queue_draw(); }
 				if (drwm == 2) { gimg.queue_draw(); }
+				if (drwm == 3) { cimg.queue_draw(); }
 			}
 		});
 		gggg.adjustment.value_changed.connect(() => {
@@ -2105,6 +2119,7 @@ public class ftwin : Gtk.ApplicationWindow {
 				if (drwm == 0) { slst.queue_draw(); }
 				if (drwm == 1) { flst.queue_draw(); }
 				if (drwm == 2) { gimg.queue_draw(); }
+				if (drwm == 3) { cimg.queue_draw(); }
 			}
 		});
 		bbbb.adjustment.value_changed.connect(() => {
@@ -2117,6 +2132,7 @@ public class ftwin : Gtk.ApplicationWindow {
 				if (drwm == 0) { slst.queue_draw(); }
 				if (drwm == 1) { flst.queue_draw(); }
 				if (drwm == 2) { gimg.queue_draw(); }
+				if (drwm == 3) { cimg.queue_draw(); }
 			}
 		});
 		hhhh.changed.connect (() => {
@@ -2133,6 +2149,7 @@ public class ftwin : Gtk.ApplicationWindow {
 						if (drwm == 0) { slst.queue_draw(); }
 						if (drwm == 1) { flst.queue_draw(); }
 						if (drwm == 2) { gimg.queue_draw(); }
+						if (drwm == 3) { cimg.queue_draw(); }
 					}
 				}
 			}
@@ -2255,6 +2272,7 @@ public class ftwin : Gtk.ApplicationWindow {
 										if (drwm == 0) { slst.queue_draw(); }
 										if (drwm == 1) { slst.queue_draw(); }
 										if (drwm == 2) { gimg.queue_draw(); }
+										if (drwm == 3) { cimg.queue_draw(); }
 									}
 								}
 							}
@@ -2303,6 +2321,7 @@ public class ftwin : Gtk.ApplicationWindow {
 			if (drwm == 0) { slst.queue_draw(); }
 			if (drwm == 1) { slst.queue_draw(); }
 			if (drwm == 2) { gimg.queue_draw(); }
+			if (drwm == 3) { cimg.queue_draw(); }
 		});
 		brem.clicked.connect (() =>  {
 			var n = sdat.length[0];
@@ -2325,6 +2344,7 @@ public class ftwin : Gtk.ApplicationWindow {
 			if (drwm == 0) { slst.queue_draw(); }
 			if (drwm == 1) { slst.queue_draw(); }
 			if (drwm == 2) { gimg.queue_draw(); }
+			if (drwm == 3) { cimg.queue_draw(); }
 		});
 
 
@@ -2993,14 +3013,91 @@ public class ftwin : Gtk.ApplicationWindow {
 				var fx = 0.0;
 				var fy = 0.0;
 				var my = ci_posy;
+				double mx = ci_posx + 5.0;
+				var dx = 1;
+				var ix = 0;
+				string[] vdatc = {};
+				string[] vdatd = {};
+				string[] vdati = {};
+				var vdh = 0.0;
+				var fyv = 0.0;
+
+// get selection hit
+
+				if (ipik && ci_mdwn[0] > 0 && izom == false && ipan == false && iscr == false) {
+					bool ds = false;
+					for ( int m = 0; m < 12; m ++ ) {
+						my = my + extents.height;
+						my = my + bxh;
+						dx = 1;
+						ix = 0;
+						for ( int x = 0; x < 42; x ++ ) {
+							xx = (int) (((x/7.0) * 7.0) % 7);
+							yy = (int) (x/7.0);
+							fx = (xx * bxw) + mx;
+							fy = (yy * bxh) + my;
+// red border for testing
+							//bc.red = ((float) 1.0); bc.green = ((float) 0.0); bc.blue = ((float) 0.0);
+							//ctx.set_source_rgba(bc.red, bc.green, bc.blue, 1.0);
+// is a valid day
+							if ( x >= (firstwkd[m] - 1) && dx <= lastdmy[m] ) {
+// mouse-click is inside the day
+								if ( ci_mdwn[0] > fx && ci_mdwn[0] < (fx + (bxw - 2)) && ci_mdwn[1] > fy && ci_mdwn[1] < (fy + bxh - 2)) {
+
+// draw border around selected tile
+									//ctx.rectangle(fx,fy,(bxw - 2),(bxh - 2)); ctx.set_line_width(2); ctx.stroke();
+// fetch transaction data for the day
+									vdatc = {};
+									vdatd = {};
+									vdati = {};
+									for (int i = ix; i < fdat.length[0]; i++) {
+										int fdmo = int.parse(fdat[i,9]);
+										if (fdmo == nextmonthsidx[m]) {
+											string[] fddt = fdat[i,0].split(" ");
+											if (int.parse(fddt[0]) == dx && int.parse(fddt[2]) == nextyears[m]) {
+												ix = (i + 1);
+												vdatc += fdat[i,7];
+												vdatd += fdat[i,1];
+												vdati += fdat[i,8];
+												//print("transaction found: %s\n",fdat[i,8]);
+											}
+										}
+										if (fdmo > nextmonthsidx[m]) { break; }
+									}
+									if (vdatc.length > 0) {
+										vdh = (bxh - 2) / vdatc.length;
+										for (int v = 0; v < vdatc.length; v++ ) {
+											fyv = (fy + (v * vdh));
+// mouse-click is inside the transaction
+											if (ci_mdwn[1] > fyv && ci_mdwn[1] < (fyv + vdh)) {
+												ssrr = int.parse(vdati[v]);
+												//print("cimg: selected rule is %d\n",ssrr);
+												ci_trgx = ci_mdwn[0];
+												ci_trgy = ci_mdwn[1];
+												ds = true;
+												break; // break out of transaction loop
+											}
+										}
+									}
+								}
+									dx += 1;
+							}
+							if (ds) { break; } // break out of day loop
+						}
+						if (ds) { break; } // break out of month loop
+						my = my + (bxh * 7.0);
+					}
+				}
+
+// reset y offset -- need to re-compute months/days/events to highlight all occurrences of the rule obtained above
+// the alternative is to call draw() twice, which is costlier, and sometimes trips over itself.
+
+				my = ci_posy;
 
 // months
 
 				for ( int m = 0; m < 12; m ++ ) {
 					ctx.set_source_rgba(bc.red, bc.green, bc.blue, 0.75);
-					my = my + (bxh * 7.0);
-					//my = (my + ci_posy);
-					double mx = ci_posx + 5.0; 
 					ctx.move_to(mx,(my+(extents.height)));
 					ctx.set_font_size(bxw);
 					ctx.show_text("%s".printf(nextmonths[m]));
@@ -3019,9 +3116,8 @@ public class ftwin : Gtk.ApplicationWindow {
 					my = my + bxh;
 
 // days
-
-					var dx = 1;
-					var ix = 0;
+					dx = 1;
+					ix = 0;
 					for ( int x = 0; x < 42; x ++ ) {
 						xx = (int) (((x/7.0) * 7.0) % 7);
 						yy = (int) (x/7.0);
@@ -3036,11 +3132,11 @@ public class ftwin : Gtk.ApplicationWindow {
 							ctx.set_font_size ((int) (double.min(bxh,bxw) * 0.5));
 							ctx.show_text("%d".printf(dx));
 
-// event data
+// get transaction data for current day
 
-							string[] vdatc = {};
-							string[] vdatd = {};
-							string[] vdati = {};
+							vdatc = {};
+							vdatd = {};
+							vdati = {};
 							for (int i = ix; i < fdat.length[0]; i++) {
 								int fdmo = int.parse(fdat[i,9]);
 								if (fdmo == nextmonthsidx[m]) {
@@ -3057,12 +3153,12 @@ public class ftwin : Gtk.ApplicationWindow {
 							}
 							if (vdatc.length > 0) {
 								//print("vdatc.length = %d\n", vdatc.length);
+								vdh = (bxh - 2) / vdatc.length;
 								for (int v = 0; v < vdatc.length; v++ ) {
-									double vdh = (bxh - 2) / vdatc.length;
-									double fyv = (fy + (v * vdh));
+									fyv = (fy + (v * vdh));
 									bc.parse(vdatc[v]);
 									ctx.set_source_rgba(bc.red, bc.green, bc.blue, 0.5);
-// event box
+// transaction box
 									ctx.rectangle(fx,fyv,(bxw - 2),vdh);
 									ctx.fill();
 									ctx.set_source_rgba(bc.red, bc.green, bc.blue, 0.75);
@@ -3070,21 +3166,7 @@ public class ftwin : Gtk.ApplicationWindow {
 									ctx.set_line_width(2);
 									ctx.stroke();
 
-
-// event click
-									if (ci_mdwn[0] > fx && ci_mdwn[0] < (fx + (bxw - 2))) {
-										if (ci_mdwn[1] > fyv && ci_mdwn[1] < (fyv + vdh)) {
-											ssrr = int.parse(vdati[v]);
-											ci_trgx = ci_mdwn[0];
-											//bc.red = ((float) 1.0); bc.green = ((float) 1.0); bc.blue = ((float) 0.0);
-											//ctx.set_source_rgba(bc.red, bc.green, bc.blue, 1.0);
-											//ctx.rectangle((fx+1),(fyv+1),(bxw - 4),(vdh-2));
-											//ctx.set_line_width(2);
-											//ctx.stroke();
-										}
-									}
-
-// draw hitbox
+// selection highlights
 
 									if (ssrr == int.parse(vdati[v])) {
 										bc.red = ((float) 1.0); bc.green = ((float) 1.0); bc.blue = ((float) 0.0);
@@ -3102,6 +3184,7 @@ public class ftwin : Gtk.ApplicationWindow {
 							ctx.fill();
 						}
 					}
+					my = my + (bxh * 7.0);
 				}
 
 // new rule selection detected, update the rest of the ui
@@ -3378,6 +3461,7 @@ public class ftwin : Gtk.ApplicationWindow {
 				ipan = (event.get_current_button() == 2);
 				ci_mdwn = {x, y};
 				if (ipik) {
+					ssrr = -1;
 					ci_olmd = {ci_mdwn[0], ci_mdwn[1]};
 					ci_trgx = ci_mdwn[0];
 					ci_trgy = ci_mdwn[1];
