@@ -12,7 +12,7 @@ forecast transactions that have complex recurrence rules
 # status
 - work in progress (see todo below).
 - usable for forecasting, saves and loads, but without any safety; you can crash it without too much effort, eg: deleting all items, blank names, etc..
-- calendar is non-interactive as of writing.
+- calendar is interactive, with drawing issues.
 - touch interaction for pinephone not implemented yet.
 
 # TODO
