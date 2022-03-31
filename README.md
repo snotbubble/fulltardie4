@@ -12,7 +12,6 @@ forecast transactions that have complex recurrence rules
 # status
 - work in progress (see todo below).
 - usable for forecasting, saves and loads, but without any safety; you can crash it without too much effort, eg: deleting all items, blank names, etc..
-- calendar is interactive, with drawing issues.
 - touch interaction for pinephone not implemented yet.
 
 # TODO
@@ -25,7 +24,6 @@ forecast transactions that have complex recurrence rules
 - [ ] force paned to switch to vertical if window aspect changes to widescreen
 - [ ] set initial second paned child width to something optimal after switching to vertical orientation
 - [ ] lock second paned child width to user-specified width (via separator drag) while in vertical orientation
-- [ ] implement zoomable 3r 4c month calendar in cairo
 - [ ] double-tap calendar to frame this month
 - [ ] complete rule component renaming/re-arranging to make more sense in plain english
 - [ ] drag-n-drop reorder of rules
