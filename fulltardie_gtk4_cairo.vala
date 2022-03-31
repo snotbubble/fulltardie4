@@ -3040,6 +3040,7 @@ public class ftwin : Gtk.ApplicationWindow {
 
 							string[] vdatc = {};
 							string[] vdatd = {};
+							string[] vdati = {};
 							for (int i = ix; i < fdat.length[0]; i++) {
 								int fdmo = int.parse(fdat[i,9]);
 								if (fdmo == nextmonthsidx[m]) {
@@ -3049,6 +3050,7 @@ public class ftwin : Gtk.ApplicationWindow {
 										ix = (i + 1);
 										vdatc += fdat[i,7];
 										vdatd += fdat[i,1];
+										vdati += fdat[i,8];
 									}
 								}
 								if (fdmo > nextmonthsidx[m]) { break; }
@@ -3056,11 +3058,41 @@ public class ftwin : Gtk.ApplicationWindow {
 							if (vdatc.length > 0) {
 								//print("vdatc.length = %d\n", vdatc.length);
 								for (int v = 0; v < vdatc.length; v++ ) {
+									double vdh = (bxh - 2) / vdatc.length;
+									double fyv = (fy + (v * vdh));
 									bc.parse(vdatc[v]);
 									ctx.set_source_rgba(bc.red, bc.green, bc.blue, 0.5);
-									double vdh = (bxh - 2) / vdatc.length;
-									ctx.rectangle(fx,(fy + (v * vdh)),(bxw - 2),vdh);
+// event box
+									ctx.rectangle(fx,fyv,(bxw - 2),vdh);
 									ctx.fill();
+									ctx.set_source_rgba(bc.red, bc.green, bc.blue, 0.75);
+									ctx.rectangle((fx+1),(fyv+1),(bxw - 4),(vdh-2));
+									ctx.set_line_width(2);
+									ctx.stroke();
+
+
+// event click
+									if (ci_mdwn[0] > fx && ci_mdwn[0] < (fx + (bxw - 2))) {
+										if (ci_mdwn[1] > fyv && ci_mdwn[1] < (fyv + vdh)) {
+											ssrr = int.parse(vdati[v]);
+											ci_trgx = ci_mdwn[0];
+											//bc.red = ((float) 1.0); bc.green = ((float) 1.0); bc.blue = ((float) 0.0);
+											//ctx.set_source_rgba(bc.red, bc.green, bc.blue, 1.0);
+											//ctx.rectangle((fx+1),(fyv+1),(bxw - 4),(vdh-2));
+											//ctx.set_line_width(2);
+											//ctx.stroke();
+										}
+									}
+
+// draw hitbox
+
+									if (ssrr == int.parse(vdati[v])) {
+										bc.red = ((float) 1.0); bc.green = ((float) 1.0); bc.blue = ((float) 0.0);
+										ctx.set_source_rgba(bc.red, bc.green, bc.blue, 1.0);
+										ctx.rectangle((fx+1),(fyv+1),(bxw - 4),(vdh-2));
+										ctx.set_line_width(2);
+										ctx.stroke();
+									}
 								}
 							}
 							dx += 1;
@@ -3074,9 +3106,9 @@ public class ftwin : Gtk.ApplicationWindow {
 
 // new rule selection detected, update the rest of the ui
 
-				//if (ssrr >= 0 && ssrr != presel) {
-				//	dosel = true;
-				//}
+				if (ssrr >= 0 && ssrr != presel) {
+					dosel = true;
+				}
 
 // reset mouseown if not doing anythting with it
 
