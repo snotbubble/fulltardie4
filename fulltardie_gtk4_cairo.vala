@@ -27,6 +27,7 @@ int					ssrr;	// current rule
 // ui
 
 Gtk.Paned			hdiv;	// top level container(s) 
+//Gtk.Widget			sep;	// separator for the above
 Gtk.Notebook		tabp;	//   viewer toplever container			checked by selectrule and forecast
 Gtk.Label			lsls;	//     label
 Gtk.Label			lfcl;	//     label
@@ -99,6 +100,13 @@ Gtk.CssProvider		pcsp;	// paned css
 
 int					gi_trns;
 int					ci_trns;
+
+// needed for double-click detection
+
+int64				dubt;	// used by hdiv, gimg, cimg
+bool				amdb;	// used by hdiv, gimg, cimg
+Gtk.Orientation		veee;	// used by hdiv
+Gtk.Orientation		hach;	// used by hdiv
 
 // fucking containers within containers within containers within containers...
 
@@ -580,6 +588,8 @@ void forecast (int ind) {
 		fdat[r,8] = "%d".printf(ttt[r].frm);	// owner
 		ttt[r].nxd.strftime(ch,"%m");
 		fdat[r,9] = ((string) ch);				// month only
+		//print("fdat stored month for %s is: %s\n",fdat[r,0],fdat[r,9]);
+		//print("fdat int parse of %s is: %d\n",fdat[r,9],int.parse(fdat[r,9]));
 	}
 
 // prep for drawing
@@ -994,6 +1004,9 @@ public class ftwin : Gtk.ApplicationWindow {
 
 		bool		dosel = false;				// select a rule on mouse-up
 
+		veee = VERTICAL;
+		hach = HORIZONTAL;
+
 // last days of month
 
 		ldom = {31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31};
@@ -1033,6 +1046,7 @@ public class ftwin : Gtk.ApplicationWindow {
 			nextmonths[i] = lomo[(currentdate.get_month() - 1)];
 			nextmonthsidx[i] = currentdate.get_month();
 			nextyears[i] = currentdate.get_year() - 2000;
+			//print("adding year: %d\n",(currentdate.get_year() - 2000));
 		}
 
 // sample data
@@ -1603,15 +1617,15 @@ public class ftwin : Gtk.ApplicationWindow {
 		//slst.queue_draw();
 
 
-///////////////////////////////////////////////////////////////////////////////////////////////////////////
-//                                                                                                       //
-//    EEEEEEEEEEEEEEE  VVVVVV    VVVV  EEEEEEEEEEEEEE  NNNNNNNNNNNNNN  TTTTTTTTTTTTTT  SSSSSSSSSSSSSS    //
-//    EEEEEE           VVVVVV    VVVV  EEEEEE          NNNNNN    NNNN      TTTTTT      SSSSSS            //
-//    EEEEEEEEEEEEEE   VVVVVV    VVVV  EEEEEEEEEEEEE   NNNNNN    NNNN      TTTTTT      SSSSSSSSSSSSSS    //
-//    EEEEEE           VVVVVV    VVVV  EEEEEE          NNNNNN    NNNN      TTTTTT                SSSS    //
-//    EEEEEEEEEEEEEE   VVVVVVVVVV      EEEEEEEEEEEEEE  NNNNNN    NNNN      TTTTTT      SSSSSSSSSSSSSS    //
-//                                                                                                       //
-///////////////////////////////////////////////////////////////////////////////////////////////////////////
+/////////////////////////////////////////////////////////////////////////////////////////////////////////////
+//                                                                                                         //
+//    EEEEEEEEEEEEEEE  VVVVVV    VVVV  EEEEEEEEEEEEEE  NNNNNN      NNNN  TTTTTTTTTTTTTT        SSSSSSSS    //
+//    EEEEEE           VVVVVV    VVVV  EEEEEE          NNNNNNNN    NNNN      TTTTTT      SSSSSS            //
+//    EEEEEEEEEEEEE    VVVVVV    VVVV  EEEEEEEEEEEE    NNNNNN  NN  NNNN      TTTTTT      SSSSSSSSSSSSSS    //
+//    EEEEEE           VVVVVV    VVVV  EEEEEE          NNNNNN    NNNNNN      TTTTTT                SSSS    //
+//    EEEEEEEEEEEEEEE  VVVVVVVVVV      EEEEEEEEEEEEEE  NNNNNN      NNNN      TTTTTT      SSSSSSSSSSSSSS    //
+//                                                                                                         //
+/////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 
 //tab panel selection action
@@ -1629,11 +1643,24 @@ public class ftwin : Gtk.ApplicationWindow {
 				if (drwm == 3) { cimg.queue_draw(); }
 			}
 		});
+		
+		//Gtk.Widget.size_allocate ft_sz = new Gtk.Widget.size_allocate();
+		//this.add_controller(ft_sz);
+		//base.configure_event.connect ((event) => {
+		//this.configure_event.connect ((event) => {
+       	// 	print ("width = %d, height = %d\n", event.width, event.height);
+        //	return false;
+    	//});
+
+		//this.size_allocate.connect(this.callback);
+		//this.size_allocate((win) => {
+		//	print("window resized: %d, %d\n",win.width,win.height);
+		//});
 
 // hdiv doubleclick/tap action
 
-		//hdiv.doubleclicked.connect(() = => {
-		//	if (hdiv.get_orientation = VERTICAL) {
+		//hdiv.doubleclicked.connect(() => {
+		//	if (hdiv.get_orientation == VERTICAL) {
 		//		hdiv.set_orientation(HORIZONTAL);
 		//	} else {
 		//		hdiv.set_orientation(VERTICAL);
@@ -3026,11 +3053,11 @@ public class ftwin : Gtk.ApplicationWindow {
 
 				if (ipik && ci_mdwn[0] > 0 && izom == false && ipan == false && iscr == false) {
 					bool ds = false;
+					ix = 0;
 					for ( int m = 0; m < 12; m ++ ) {
 						my = my + extents.height;
 						my = my + bxh;
 						dx = 1;
-						ix = 0;
 						for ( int x = 0; x < 42; x ++ ) {
 							xx = (int) (((x/7.0) * 7.0) % 7);
 							yy = (int) (x/7.0);
@@ -3047,12 +3074,16 @@ public class ftwin : Gtk.ApplicationWindow {
 // draw border around selected tile
 									//ctx.rectangle(fx,fy,(bxw - 2),(bxh - 2)); ctx.set_line_width(2); ctx.stroke();
 // fetch transaction data for the day
+									//print("mouse clicked box: %f x %f\n",fx,fy);
 									vdatc = {};
 									vdatd = {};
 									vdati = {};
+									//print("selected month is %d\n", nextmonthsidx[m]);
 									for (int i = ix; i < fdat.length[0]; i++) {
 										int fdmo = int.parse(fdat[i,9]);
+										//print("\tmonth of transaction is %d\n",fdmo);
 										if (fdmo == nextmonthsidx[m]) {
+											//print("found matching transactions for selected month %d\n", nextmonthsidx[m]);
 											string[] fddt = fdat[i,0].split(" ");
 											if (int.parse(fddt[0]) == dx && int.parse(fddt[2]) == nextyears[m]) {
 												ix = (i + 1);
@@ -3062,16 +3093,17 @@ public class ftwin : Gtk.ApplicationWindow {
 												//print("transaction found: %s\n",fdat[i,8]);
 											}
 										}
-										if (fdmo > nextmonthsidx[m]) { break; }
+										//if (fdmo > nextmonthsidx[m]) { break; }
 									}
 									if (vdatc.length > 0) {
+										//print("transaction count = %d\n",vdatc.length);
 										vdh = (bxh - 2) / vdatc.length;
 										for (int v = 0; v < vdatc.length; v++ ) {
 											fyv = (fy + (v * vdh));
 // mouse-click is inside the transaction
 											if (ci_mdwn[1] > fyv && ci_mdwn[1] < (fyv + vdh)) {
 												ssrr = int.parse(vdati[v]);
-												//print("cimg: selected rule is %d\n",ssrr);
+												print("cimg: selected rule is %d\n",ssrr);
 												ci_trgx = ci_mdwn[0];
 												ci_trgy = ci_mdwn[1];
 												ds = true;
@@ -3080,7 +3112,7 @@ public class ftwin : Gtk.ApplicationWindow {
 										}
 									}
 								}
-									dx += 1;
+								dx += 1;
 							}
 							if (ds) { break; } // break out of day loop
 						}
@@ -3096,6 +3128,7 @@ public class ftwin : Gtk.ApplicationWindow {
 
 // months
 
+				ix = 0;
 				for ( int m = 0; m < 12; m ++ ) {
 					ctx.set_source_rgba(bc.red, bc.green, bc.blue, 0.75);
 					ctx.move_to(mx,(my+(extents.height)));
@@ -3117,7 +3150,6 @@ public class ftwin : Gtk.ApplicationWindow {
 
 // days
 					dx = 1;
-					ix = 0;
 					for ( int x = 0; x < 42; x ++ ) {
 						xx = (int) (((x/7.0) * 7.0) % 7);
 						yy = (int) (x/7.0);
@@ -3141,9 +3173,8 @@ public class ftwin : Gtk.ApplicationWindow {
 								int fdmo = int.parse(fdat[i,9]);
 								if (fdmo == nextmonthsidx[m]) {
 									string[] fddt = fdat[i,0].split(" ");
-									//print("fddt[2] = %d\n", int.parse(fddt[2]));
 									if (int.parse(fddt[0]) == dx && int.parse(fddt[2]) == nextyears[m]) {
-										ix = (i + 1);
+										ix = (i+1);
 										vdatc += fdat[i,7];
 										vdatd += fdat[i,1];
 										vdati += fdat[i,8];
@@ -3252,6 +3283,8 @@ public class ftwin : Gtk.ApplicationWindow {
 //                    //
 ////////////////////////
 
+		Gtk.GestureClick dv_dublclik = new Gtk.GestureClick();
+
 		Gtk.GestureDrag sl_touchpan = new Gtk.GestureDrag();
 		//Gtk.GestureZoom sl_touchzoom = new Gtk.GestureZoom();
 		Gtk.EventControllerScroll sl_wheeler = new Gtk.EventControllerScroll(VERTICAL);
@@ -3272,10 +3305,13 @@ public class ftwin : Gtk.ApplicationWindow {
 		Gtk.EventControllerScroll ci_wheeler = new Gtk.EventControllerScroll(VERTICAL);
 		Gtk.EventControllerMotion ci_hover = new Gtk.EventControllerMotion();
 
+		dv_dublclik.set_button(0);
 		sl_touchpan.set_button(0);
 		fl_touchpan.set_button(0);
 		gi_touchpan.set_button(0);
 		ci_touchpan.set_button(0);
+
+		sep.add_controller(dv_dublclik);
 
 		slst.add_controller(sl_touchpan);
 		//slst.add_controller(sl_touchzoom);
@@ -3296,6 +3332,15 @@ public class ftwin : Gtk.ApplicationWindow {
 		//cimg.add_controller(ci_touchzoom);
 		cimg.add_controller(ci_wheeler);
 		cimg.add_controller(ci_hover);
+
+		dv_dublclik.released.connect(() => {
+			print("sep click released...\n");
+			if (hdiv.get_orientation() == veee) {
+				hdiv.set_orientation(Gtk.Orientation.HORIZONTAL);
+			} else {
+				hdiv.set_orientation(Gtk.Orientation.VERTICAL);
+			}
+		});
 
 		sl_touchpan.drag_begin.connect ((event, x, y) => {
 			if (drwm == 0) {
