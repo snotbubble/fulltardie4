@@ -24,9 +24,14 @@ forecast transactions that have complex recurrence rules
 - [ ] lock second paned child width to user-specified width (via separator drag) while in vertical orientation
 - [ ] double-tap calendar to frame this month
 - [ ] prevent panning stuff completely off-screen
+- [ ] maintain aspect for mousewheel zoom in graph & calendar
+- [ ] fix zoom-focus location in calendar
+- [ ] prevent inversion when zooming
+- [ ] recalc mousewheel zoom incrament to maintain consistent velocity
 - [ ] complete rule component renaming/re-arranging to make more sense in plain english
 - [ ] drag-n-drop reorder of rules
 - [ ] isolate category
+- [ ] remove orphaned groups/categories from dropdown lists
 - [ ] try to break the forecast with malicious usage and fix accordingly
 - [ ] gnome notification integration for next week of transactions
 - [ ] add done button to transaction notifications (notifications persist otherwise)
