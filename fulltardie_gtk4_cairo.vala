@@ -4,8 +4,8 @@
 // replacing listboxes with cairo draw-areas
 // css roundtripping was lagging, producing incorrect results, and generally retarded
 //
-// status: usable, without safety.
-// - compiles, runs, renders lists and graph.
+// status: usable, zero safety/foolproofing.
+// - compiles, runs, renders lists, graph & calendar.
 
 using Gtk;
 
@@ -452,7 +452,7 @@ nextdate[] findnextdate (string[] dat, int own, int ind) {
 	return o;
 }
 
-// update idat separate to isolate cosmetic changes to list
+// update idat separately to isolate cosmetic changes to list
 
 void updateidat (int ind) {
 	var tabi = ("%-" + ind.to_string() + "s").printf("");
@@ -530,7 +530,7 @@ void forecast (int ind) {
 	if (spew) { print("%sforecast started...\n",tabi); }
 	var nind = ind + 4;
 
-// close the graph info bubble since we;re reforecasting
+// close the graph info bubble since we're reforecasting
 
 	gi_trns = 99999;
 
@@ -892,7 +892,6 @@ string moi (int i) {
 
 
 public class fulltardie : Gtk.Application {
-
 	construct {
 		application_id = "com.snotbubble.fulltardie";
 		flags = ApplicationFlags.FLAGS_NONE;
@@ -1004,6 +1003,9 @@ public class ftwin : Gtk.ApplicationWindow {
 
 		bool		dosel = false;				// select a rule on mouse-up
 
+
+// remove these after testing
+
 		veee = VERTICAL;
 		hach = HORIZONTAL;
 
@@ -1065,6 +1067,7 @@ public class ftwin : Gtk.ApplicationWindow {
 		};
 		
 // utility lists used by functions
+
 		string[] evr = {
 			"the",
 			"every",
@@ -1256,8 +1259,8 @@ public class ftwin : Gtk.ApplicationWindow {
 // window
 
 		this.title = "fulltardie";
-		this.close_request.connect((e) => { 
-			if (spew) { print("yeh bye\n"); } 
+		this.close_request.connect((e) => {
+			if (spew) { print("yeh bye\n"); }
 			return false; 
 		});
 		//this.set_margin_top(10);
@@ -1643,29 +1646,28 @@ public class ftwin : Gtk.ApplicationWindow {
 				if (drwm == 3) { cimg.queue_draw(); }
 			}
 		});
-		
-		//Gtk.Widget.size_allocate ft_sz = new Gtk.Widget.size_allocate();
-		//this.add_controller(ft_sz);
-		//base.configure_event.connect ((event) => {
-		//this.configure_event.connect ((event) => {
-       	// 	print ("width = %d, height = %d\n", event.width, event.height);
-        //	return false;
-    	//});
 
-		//this.size_allocate.connect(this.callback);
-		//this.size_allocate((win) => {
-		//	print("window resized: %d, %d\n",win.width,win.height);
-		//});
+// re-arrange ui when window is resized...
+// window.notify[propertyname].connect isn't working for some reason...
 
-// hdiv doubleclick/tap action
+		//this.notify["default_height"].connect(() => {
+		this.notify.connect(() => {
+			int wx, wy = 0;
+			this.get_default_size(out wx,out wy);
+			//print("window size is: %d, %d\n",wx,wy);
+			if ((wx < 720) && (wx < wy)) {
+				if (hdiv.get_orientation() == HORIZONTAL) {
+					hdiv.set_orientation(VERTICAL);
+				}
+			} 
+			if ((wx > 720) && (wx > wy)) {
+				if (hdiv.get_orientation() == VERTICAL) {
+					hdiv.set_orientation(HORIZONTAL);
+					hdiv.position = 360;
+				}
+			}
+		});
 
-		//hdiv.doubleclicked.connect(() => {
-		//	if (hdiv.get_orientation == VERTICAL) {
-		//		hdiv.set_orientation(HORIZONTAL);
-		//	} else {
-		//		hdiv.set_orientation(VERTICAL);
-		//	}
-		//});
 
 /////////////////////////////////////////////////
 //                                             //
