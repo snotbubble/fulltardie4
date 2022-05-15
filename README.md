@@ -23,6 +23,7 @@ forecast transactions that have complex recurrence rules
 - [ ] fix paned separator touch area (its way too big compared to mouse area)
 - [ ] lock second paned child width to user-specified width (via separator drag) while in vertical orientation
 - [ ] double-tap calendar to frame this month
+- [ ] prevent panning stuff completely off-screen
 - [ ] complete rule component renaming/re-arranging to make more sense in plain english
 - [ ] drag-n-drop reorder of rules
 - [ ] isolate category
