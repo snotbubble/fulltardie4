@@ -1616,7 +1616,8 @@ public class ftwin : Gtk.ApplicationWindow {
 		fl_olsz = {360,(20.0 * fdat.length[0])};
 		gi_olsz = {260.0,370.0};
 		gi_olof = {40.0,20.0};
-		ci_olsz = {260.0,370.0};
+		ci_olsz = {340.0,370.0};
+		ci_olof = {20.0,20.0};
 		//slst.queue_draw();
 
 
@@ -1650,7 +1651,7 @@ public class ftwin : Gtk.ApplicationWindow {
 // re-arrange ui when window is resized...
 // window.notify[propertyname].connect isn't working for some reason...
 
-		//this.notify["default_height"].connect(() => {
+		//this.notify["default_width"].connect(() => {
 		this.notify.connect(() => {
 			int wx, wy = 0;
 			this.get_default_size(out wx,out wy);
@@ -3008,12 +3009,34 @@ public class ftwin : Gtk.ApplicationWindow {
 					ci_posy = ci_olof[1] + ( (ci_mdwn[1] - ci_olof[1]) - ( (ci_mdwn[1] - ci_olof[1]) * (ci_sizy / ci_olsz[1]) ) ) ;
 					ci_trgx = ci_olmd[0] + ( (ci_mdwn[0] - ci_olmd[0]) - ( (ci_mdwn[0] - ci_olmd[0]) * (ci_sizx / ci_olsz[0]) ) ) ;
 					ci_trgy = ci_olmd[1] + ( (ci_mdwn[1] - ci_olmd[1]) - ( (ci_mdwn[1] - ci_olmd[1]) * (ci_sizy / ci_olsz[1]) ) ) ;
+// zoom bounds
+					if ((ci_sizx + 20.0) > csx) {
+						ci_posx = double.max(double.min(15.0, ci_posx), (csx - ci_sizx - 20.0));
+					} else {
+						ci_posx = double.min(double.max(15.0, ci_posx), (csx - ci_sizx - 20.0));
+					}
+					if (((ci_sizy * 14.0) + 20.0) > csy) {
+						ci_posy = double.max(double.min(15.0, ci_posy), (csy - (ci_sizy * 14.0) - 20.0));
+					} else {
+						ci_posy = double.min(double.max(15.0, ci_posy), (csy - (ci_sizy * 14.0) - 20.0));
+					}
 				}
 				if(ipan) {
 					ci_posx = ci_olof[0] + ci_moom[0];
 					ci_posy = ci_olof[1] + ci_moom[1];
 					ci_trgx = ci_olmd[0] + ci_moom[0];
 					ci_trgy = ci_olmd[1] + ci_moom[1];
+// pan bounds
+					if ((ci_sizx + 20.0) > csx) {
+						ci_posx = double.max(double.min(15.0, ci_posx), (csx - ci_sizx - 20.0));
+					} else {
+						ci_posx = double.min(double.max(15.0, ci_posx), (csx - ci_sizx - 20.0));
+					}
+					if (((ci_sizy * 14.0) + 20.0) > csy) {
+						ci_posy = double.max(double.min(15.0, ci_posy), (csy - (ci_sizy * 14.0) - 20.0));
+					} else {
+						ci_posy = double.min(double.max(15.0, ci_posy), (csy - (ci_sizy * 14.0) - 20.0));
+					}
 				}
 				if (ipik) {
 					ci_trgx = ci_mdwn[0];
