@@ -3308,8 +3308,6 @@ public class ftwin : Gtk.ApplicationWindow {
 //                    //
 ////////////////////////
 
-		Gtk.GestureClick dv_dublclik = new Gtk.GestureClick();
-
 		Gtk.GestureDrag sl_touchpan = new Gtk.GestureDrag();
 		//Gtk.GestureZoom sl_touchzoom = new Gtk.GestureZoom();
 		Gtk.EventControllerScroll sl_wheeler = new Gtk.EventControllerScroll(VERTICAL);
@@ -3330,13 +3328,10 @@ public class ftwin : Gtk.ApplicationWindow {
 		Gtk.EventControllerScroll ci_wheeler = new Gtk.EventControllerScroll(VERTICAL);
 		Gtk.EventControllerMotion ci_hover = new Gtk.EventControllerMotion();
 
-		dv_dublclik.set_button(0);
 		sl_touchpan.set_button(0);
 		fl_touchpan.set_button(0);
 		gi_touchpan.set_button(0);
 		ci_touchpan.set_button(0);
-
-		sep.add_controller(dv_dublclik);
 
 		slst.add_controller(sl_touchpan);
 		//slst.add_controller(sl_touchzoom);
@@ -3358,18 +3353,11 @@ public class ftwin : Gtk.ApplicationWindow {
 		cimg.add_controller(ci_wheeler);
 		cimg.add_controller(ci_hover);
 
-		dv_dublclik.released.connect(() => {
-			print("sep click released...\n");
-			if (hdiv.get_orientation() == veee) {
-				hdiv.set_orientation(Gtk.Orientation.HORIZONTAL);
-			} else {
-				hdiv.set_orientation(Gtk.Orientation.VERTICAL);
-			}
-		});
-
 		sl_touchpan.drag_begin.connect ((event, x, y) => {
 			if (drwm == 0) {
 				if (spew && hard) { print("touchpan_drag_begin\n"); }
+				var ipt = event.get_device();
+				print("device is: %s\n",ipt.name);
 				ipik = (event.get_current_button() == 1);
 				izom = (event.get_current_button() == 3);
 				ipan = (event.get_current_button() == 2);
