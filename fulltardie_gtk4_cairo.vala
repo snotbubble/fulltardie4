@@ -1042,7 +1042,7 @@ public class ftwin : Gtk.ApplicationWindow {
 		string[] nextmonths = {"","","","","","","","","","","",""};
 		currentdate.set_dmy(((DateDay) 1), (thismonth - 1), ((DateYear) currentdatetime.get_year()));
 		for (int i = 0; i < 12; i++) {
-			currentdate.add_months(1);
+			if (i != 0) { currentdate.add_months(1); }
 			firstwkd[i] = lwkd(currentdate.get_weekday());
 			lastdmy[i] = ldom[(currentdate.get_month() - 1)];
 			nextmonths[i] = lomo[(currentdate.get_month() - 1)];
