@@ -1,10 +1,10 @@
 // gtk4 translation
-// by c.p.brown 2022
+// by c.p.brown 2022~2023
 //
 // replacing listboxes with cairo draw-areas
 // css roundtripping was lagging, producing incorrect results, and generally retarded
 //
-// status: usable, zero safety/foolproofing.
+// status: RMB & MMB busted after system update, otherwise usable, zero safety/foolproofing.
 // - compiles, runs, renders lists, graph & calendar.
 
 using Gtk;
