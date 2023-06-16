@@ -129,7 +129,7 @@ struct nextdate {
 	public string	gco;
 }
 
-// modulo from 'cdeerinck'
+// modulo technique from 'cdeerinck'
 // https://stackoverflow.com/questions/41180292/negative-number-modulo-in-swift#41180619
 
 int imod (int l, int r) {
